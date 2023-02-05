@@ -1,0 +1,5 @@
+# FourierSeriesEvaluators.jl
+
+```@docs
+FourierSeriesEvaluators
+```
