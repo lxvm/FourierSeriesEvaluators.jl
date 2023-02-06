@@ -12,7 +12,7 @@ import AbstractFourierSeriesEvaluators: period, contract, contract!, value
 export AbstractFourierSeries, AbstractInplaceFourierSeries, phase_type, fourier_type,
     period, contract, contract!, value
 
-export fourier_kernel
+export fourier_contract, fourier_contract!, fourier_evaluate
 include("fourier_kernel.jl")
 
 export FourierSeries, FourierSeriesDerivative, OffsetFourierSeries, ManyFourierSeries, ManyOffsetsFourierSeries
