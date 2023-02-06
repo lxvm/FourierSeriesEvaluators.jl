@@ -7,10 +7,10 @@ see the tests.
 module FourierSeriesEvaluators
 
 using AbstractFourierSeriesEvaluators: AbstractFourierSeries, AbstractInplaceFourierSeries, phase_type, fourier_type
-import AbstractFourierSeriesEvaluators: period, contract, contract!, value
+import AbstractFourierSeriesEvaluators: period, contract, contract!, evaluate
 
 export AbstractFourierSeries, AbstractInplaceFourierSeries, phase_type, fourier_type,
-    period, contract, contract!, value
+    period, contract, contract!, evaluate
 
 export fourier_contract, fourier_contract!, fourier_evaluate
 include("fourier_kernel.jl")
