@@ -22,22 +22,23 @@ include("fourier_reference.jl")
             OC = OffsetArray(C, Origin(ntuple(i -> -origin, n)...))
             OR = OffsetArray(R, Origin(ntuple(i -> -origin, n-1)...))
             # real and complex inputs and different orders of derivative
-            for x in (rand(nxtest)..., rand(ComplexF64, nxtest)...), (a,va) in ((0,Val(0)), (1,Val(1)), (2,2))
+            for x in (rand(nxtest)..., rand(ComplexF64, nxtest)...), (a,va) in ((0,Val(0)), (1,Val(1)), (2,2)), dim in 1:n
                 period = 2.11; k = 2pi/inv(period)
-                ref = ref_contract(C, x, k, a)
-                oref = ref_contract(OC, x, k, a)
+                shift = 0
+                ref = ref_contract(C, x, k, a, dim)
+                oref = ref_contract(OC, x, k, a, dim)
                 if !(eltype(T) <: Complex)
-                    @test_throws ArgumentError fourier_contract!(R, C, x, k, va)
+                    @test_throws ArgumentError fourier_contract!(R, C, x, k, va, shift, Val(dim))
                 else
                     # compare to reference evaluators
-                    @test ref ≈ fourier_contract!(R, C, x, k, va)
-                    @test oref ≈ fourier_contract!(OR, OC, x, k, va)
+                    @test ref ≈ fourier_contract!(R, C, x, k, va, shift, Val(dim))
+                    @test oref ≈ fourier_contract!(OR, OC, x, k, va, shift, Val(dim))
                     # test the shift
-                    @test parent(OR) ≈ fourier_contract!(R, parent(OC), x, k, va, -(origin+1))
+                    @test parent(OR) ≈ fourier_contract!(R, parent(OC), x, k, va, -(origin+1), Val(dim))
                 end
                 # test the allocating version
-                @test ref ≈ fourier_contract(C, x, k, va)
-                @test oref ≈ fourier_contract(OC, x, k, va)
+                @test ref ≈ fourier_contract(C, x, k, va, shift, Val(dim))
+                @test oref ≈ fourier_contract(OC, x, k, va, shift, Val(dim))
                 # test the 1D evaluators
                 n == 1 || continue
                 # compare to reference evaluators
