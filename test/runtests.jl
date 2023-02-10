@@ -60,9 +60,10 @@ include("fourier_reference.jl")
             for _ in 1:nxtest
                 x = rand(d)
                 # test period
-                period = rand(d)
-                f = FourierSeries(C, period=period)
-                @test f(x) ≈ ref_evaluate(C, x, 2pi ./ period)
+                periods = rand(d)
+                f = FourierSeries(C, period=periods)
+                @test all(period(f) .≈ periods)
+                @test f(x) ≈ ref_evaluate(C, x, 2pi ./ periods)
                 # test derivative
                 for (deriv, a) in ((Val(0), 0), (Val(1), 1), fill(rand(1:4, d), 2))
                     f = FourierSeries(C, period=1, deriv=a)
@@ -99,14 +100,35 @@ include("fourier_reference.jl")
         end
     end
     
-    #=
-    @testset "FourierSeries3D" begin
-        
-    end
-
-
     @testset "InplaceFourierSeries" begin
-        
+        nxtest=5
+        n = 11; m = div(n,2)
+        for d in 2:4, T in (ComplexF64, SMatrix{5,5,ComplexF64,25})
+            C = rand(T, ntuple(_->n, d)...)
+            OC = OffsetArray(C, ntuple(_->-m:m, d)...)
+            for _ in 1:nxtest
+                x = rand(d)
+                # test period
+                periods = rand(d)
+                f = InplaceFourierSeries(C, period=periods)
+                @test all(period(f) .≈ periods)
+                @test f(x) ≈ ref_evaluate(C, x, 2pi ./ periods)
+                # test derivative
+                for (deriv, a) in ((Val(0), 0), (Val(1), 1), fill(rand(1:4, d), 2))
+                    f = InplaceFourierSeries(C, period=1, deriv=a)
+                    @test f(x) ≈ ref_evaluate(C, x, 2pi, a)
+                end
+                # test offset
+                f = InplaceFourierSeries(OC, period=1)
+                @test f(x) ≈ ref_evaluate(OC, x, 2pi)
+                f = InplaceFourierSeries(C, period=1, offset=-m-1)
+                @test f(x) ≈ ref_evaluate(OC, x, 2pi)
+                # test shift
+                q = rand(d)
+                f = InplaceFourierSeries(C, period=1, shift=q)
+                @test f(x) ≈ ref_evaluate(C, x-q, 2pi)
+            end
+        end
     end
-    =#
+
 end

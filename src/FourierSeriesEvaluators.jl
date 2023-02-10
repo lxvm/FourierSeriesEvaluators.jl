@@ -5,7 +5,11 @@ coefficients is small compared to the number of evaluation points.
 
 For example, to evaluate cosine
 
-    FourierSeries([0.0, 0.0, 0.5], period=2pi, offset=-2)(pi) ≈ cos(pi)
+    FourierSeries([0.5, 0.0, 0.5], period=2pi, offset=-2)(pi) ≈ cos(pi)
+
+or to evaluate sine from the derivative of cosine
+
+    FourierSeries([0.5, 0.0, 0.5], period=2pi, offset=-2, deriv=1)(pi/2) ≈ -sin(pi/2)
 
 The package also provides the following low-level routines that are also useful
 - `fourier_contract`: contracts 1 index of a multidimensional Fourier series
@@ -26,10 +30,8 @@ export AbstractFourierSeries, AbstractInplaceFourierSeries, phase_type, fourier_
 export fourier_contract, fourier_contract!, fourier_evaluate
 include("fourier_kernel.jl")
 
-export FourierSeries, ManyFourierSeries
-include("FourierSeries.jl")
+export FourierSeries, InplaceFourierSeries, ManyFourierSeries
+include("fourier_series.jl")
 
-export FourierSeries3D
-include("FourierSeries3D.jl")
 
 end
