@@ -21,17 +21,14 @@ These routines have the following features
 """
 module FourierSeriesEvaluators
 
-using AbstractFourierSeriesEvaluators: AbstractFourierSeries, AbstractInplaceFourierSeries, phase_type, fourier_type
-import AbstractFourierSeriesEvaluators: period, contract, contract!, evaluate
-
-export AbstractFourierSeries, AbstractInplaceFourierSeries, phase_type, fourier_type,
-    period, contract, contract!, evaluate
+export AbstractFourierSeries, AbstractInplaceFourierSeries
+export period, contract, contract!, evaluate, phase_type, fourier_type
+include("definitions.jl")
 
 export fourier_contract, fourier_contract!, fourier_evaluate
 include("fourier_kernel.jl")
 
 export FourierSeries, InplaceFourierSeries, ManyFourierSeries
 include("fourier_series.jl")
-
 
 end
