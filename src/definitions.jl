@@ -87,7 +87,7 @@ Base.ndims(::AbstractFourierSeries{N}) where N = N
 Returns `T`, the type of the input data to the Fourier series. For the output
 type, see [`fourier_type`](@ref)
 """
-Base.eltype(::Type{AbstractFourierSeries{N,T}}) where {N,T} = T
+Base.eltype(::Type{<:AbstractFourierSeries{N,T}}) where {N,T} = T
 
 
 # helper functions for types

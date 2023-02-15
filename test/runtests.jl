@@ -63,6 +63,8 @@ include("fourier_reference.jl")
                 periods = rand(d)
                 f = FourierSeries(C, period=periods)
                 @test all(period(f) .≈ periods)
+                @test eltype(f) == T
+                @test ndims(f) == d
                 @test f(x) ≈ ref_evaluate(C, x, 2pi ./ periods)
                 # test derivative
                 for (deriv, a) in ((Val(0), 0), (Val(1), 1), fill(rand(1:4, d), 2))
@@ -91,6 +93,8 @@ include("fourier_reference.jl")
             fs = ntuple(_ -> FourierSeries(rand(T, ntuple(_->n, d)...), period=periods), nfs)
             mfs = ManyFourierSeries(fs...)
             # test period
+            @test eltype(mfs) == Tuple{ntuple(_->T, nfs)...}
+            @test ndims(mfs) == d
             @test all(period(mfs) .≈ periods)
             for _ in 1:nxtest
                 x = rand(d)
@@ -112,6 +116,8 @@ include("fourier_reference.jl")
                 periods = rand(d)
                 f = InplaceFourierSeries(C, period=periods)
                 @test all(period(f) .≈ periods)
+                @test eltype(f) == T
+                @test ndims(f) == d
                 @test f(x) ≈ ref_evaluate(C, x, 2pi ./ periods)
                 # test derivative
                 for (deriv, a) in ((Val(0), 0), (Val(1), 1), fill(rand(1:4, d), 2))
