@@ -21,12 +21,13 @@ struct FourierSeries{N,T,C,K,A,O,Q} <: AbstractFourierSeries{N,T}
     a::A
     o::O
     q::Q
-    FourierSeries{N,T}(c::C, k::K, a::A, o::O, q::Q) where {N,T,C<:AbstractArray{T,N},K<:NTuple{N},A<:NTuple{N},O<:NTuple{N},Q<:NTuple{N}} =
+    FourierSeries{N,T}(c::C, k::K, a::A, o::O, q::Q) where {N,T,C<:AbstractArray{T,N},K<:Tuple{Vararg{Any,N}},A<:Tuple{Vararg{Any,N}},O<:Tuple{Vararg{Any,N}},Q<:Tuple{Vararg{Any,N}}} =
         new{N,T,C,K,A,O,Q}(c, k, a, o, q)
 end
 
-fill_ntuple(e, N) =
-    e isa Union{Tuple{Vararg{Any,N}},AbstractVector} ? promote(e...) : ntuple(_ -> e, N)
+fill_ntuple(e::Union{Number,Val}, N) = ntuple(_ -> e, N)
+fill_ntuple(e::Tuple, _) = e
+fill_ntuple(e::AbstractArray, _) = tuple(e...)
 
 function FourierSeries(coeffs::AbstractArray{T,N}; period=2pi, deriv=Val(0), offset=0, shift=0.0) where {T,N}
     period = fill_ntuple(period, N)
@@ -91,8 +92,18 @@ function InplaceFourierSeries(coeffs::AbstractArray{T,0}; period=(), deriv=(), o
     InplaceFourierSeries{0,T}((), coeffs, period, deriv, offset, shift)
 end
 
-period(f::InplaceFourierSeries{0}) = f.k
-period(f::InplaceFourierSeries) = (period(f.f)..., 2pi/f.k)
+period(_::InplaceFourierSeries{0}) = ()
+period(f::InplaceFourierSeries) =(period(f.f)..., 2pi ./ f.k)
+
+deriv(_::InplaceFourierSeries{0}) = ()
+deriv(f::InplaceFourierSeries) =(deriv(f.f)..., f.a)
+
+offset(_::InplaceFourierSeries{0}) = ()
+offset(f::InplaceFourierSeries) =(offset(f.f)..., f.o)
+
+shift(_::InplaceFourierSeries{0}) = ()
+shift(f::InplaceFourierSeries) =(shift(f.f)..., f.q)
+
 
 function contract!(f::InplaceFourierSeries{N}, x::Number, ::Val{N}) where N
     fourier_contract!(f.f.c, f.c, x-f.q, f.k, f.a, f.o, Val(N))
@@ -105,7 +116,7 @@ evaluate(f::InplaceFourierSeries{1}, x::NTuple{1}) =
 coefficients(f::InplaceFourierSeries) = f.c
 
 show_details(f::InplaceFourierSeries) =
-    " & $(f.a) derivative & $(f.o) offset & $(f.q) shift"
+    " & $(deriv(f)) derivative & $(offset(f)) offset & $(shift(f)) shift"
 
 
 """
