@@ -53,6 +53,12 @@ evaluate(f::FourierSeries{1}, x::NTuple{1}) =
     fourier_evaluate(f.c, x[1]-f.q[1], f.k[1], f.a[1], f.o[1])
 
 
+coefficients(f::FourierSeries) = f.c
+
+show_details(f::FourierSeries) =
+    " & $(f.a) derivative & $(f.o) offset & $(f.q) shift"
+
+
 """
     InplaceFourierSeries(coeffs::AbstractArray; period=2pi, offset=0, deriv=0, shift=0)
 
@@ -88,13 +94,18 @@ end
 period(f::InplaceFourierSeries{0}) = f.k
 period(f::InplaceFourierSeries) = (period(f.f)..., 2pi/f.k)
 
-function contract!(f::F, x::Number, ::Val{N}) where {N,F<:InplaceFourierSeries{N}}
+function contract!(f::InplaceFourierSeries{N}, x::Number, ::Val{N}) where N
     fourier_contract!(f.f.c, f.c, x-f.q, f.k, f.a, f.o, Val(N))
     return f.f
 end
 
 evaluate(f::InplaceFourierSeries{1}, x::NTuple{1}) =
     fourier_evaluate(f.c, x[1]-f.q, f.k, f.a, f.o)
+
+coefficients(f::InplaceFourierSeries) = f.c
+
+show_details(f::InplaceFourierSeries) =
+    " & $(f.a) derivative & $(f.o) offset & $(f.q) shift"
 
 
 """
@@ -123,4 +134,7 @@ end
 
 evaluate(fs::ManyFourierSeries{N}, x::NTuple{N}) where N =
     map(f -> evaluate(f, x), fs.fs)
+
+show_details(fs::ManyFourierSeries) =
+    " & $(length(fs.fs)) element$(length(fs.fs) > 1 ? "s" : "")"
 

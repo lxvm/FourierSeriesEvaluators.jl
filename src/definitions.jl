@@ -67,6 +67,13 @@ length for the problem.
 """
 function period end
 
+"""
+    coefficients(f::AbstractFourierSeries) = nothing
+
+Return the underlying array representing the Fourier series, if applicable.
+There are cases with multiple Fourier series where this many not make sense.
+"""
+coefficients(::AbstractFourierSeries) = nothing
 
 # abstract methods
 
@@ -82,7 +89,7 @@ evaluate(f::AbstractFourierSeries{N}, x::NTuple{N}) where N =
 Base.ndims(::AbstractFourierSeries{N}) where N = N
 
 """
-    eltype(::AbstracFourierSeries{N,T}) where {N,T}
+    eltype(::AbstractFourierSeries{N,T}) where {N,T}
 
 Returns `T`, the type of the input data to the Fourier series. For the output
 type, see [`fourier_type`](@ref)
@@ -109,3 +116,12 @@ fourier_type(::Type{T}, x) where T =
     Base.promote_op(*, T, phase_type(x))
 fourier_type(f::AbstractFourierSeries, x) =
     fourier_type(eltype(f), x)
+
+show_dims(f::AbstractFourierSeries) = show_dims(f, coefficients(f))
+show_dims(_, A::AbstractArray) = Base.dims2string(length.(axes(A))) * " "
+show_dims(f, ::Nothing) = "$(ndims(f))-dimensional "
+show_details(::AbstractFourierSeries) = ""
+
+Base.summary(f::AbstractFourierSeries) =
+    string(show_dims(f), nameof(typeof(f)), " with $(eltype(f)) coefficients & ", period(f), " periodicity", show_details(f))
+Base.show(io::IO, f::AbstractFourierSeries) = print(io, summary(f))
