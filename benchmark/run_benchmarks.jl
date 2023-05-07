@@ -13,7 +13,7 @@ for M=[11, 12, 111, 112, 1111, 1112] # numbers of Fourier coefficients to benchm
     for T in (ComplexF64, SHermitianCompact{3,ComplexF64,6}, SMatrix{3,3,ComplexF64,9})
         R = Array{T,0}(undef)
         C = rand(T, M)
-        for x in (0.6914384774549351, 0.0393911707729353 + 0.5777059044321278im), a in (Val(0), Val(1), 2, 2.1)
+        for x in (0.6914384774549351, 0.0393911707729353 + 0.5777059044321278im), a in (0, 1, 2, 2.1)
             k = oftype(x, 1)
             suite["fourier_contract!"][M, T, typeof(x), a] = @benchmarkable fourier_contract!($R, $C, $x, $k, $a)
             suite["fourier_contract"][M, T, typeof(x), a]  = @benchmarkable fourier_contract($C, $x, $k, $a)
