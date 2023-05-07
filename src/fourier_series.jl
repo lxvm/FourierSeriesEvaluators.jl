@@ -39,6 +39,12 @@ end
 
 period(f::FourierSeries) = 2pi ./ f.k
 
+deriv(f::FourierSeries) = f.a
+
+offset(f::FourierSeries) = f.o
+
+shift(f::FourierSeries) = f.q
+
 deleteat_(t::NTuple{N}, ::Val{i}) where {N,i} = ntuple(n -> t[n+(n>=i)], Val(N-1))
 
 function contract(f::FourierSeries{N,T}, x::Number, ::Val{dim}) where {N,T,dim}
@@ -93,16 +99,16 @@ function InplaceFourierSeries(coeffs::AbstractArray{T,0}; period=(), deriv=(), o
 end
 
 period(_::InplaceFourierSeries{0}) = ()
-period(f::InplaceFourierSeries) =(period(f.f)..., 2pi ./ f.k)
+period(f::InplaceFourierSeries) = (period(f.f)..., 2pi ./ f.k)
 
 deriv(_::InplaceFourierSeries{0}) = ()
-deriv(f::InplaceFourierSeries) =(deriv(f.f)..., f.a)
+deriv(f::InplaceFourierSeries) = (deriv(f.f)..., f.a)
 
 offset(_::InplaceFourierSeries{0}) = ()
-offset(f::InplaceFourierSeries) =(offset(f.f)..., f.o)
+offset(f::InplaceFourierSeries) = (offset(f.f)..., f.o)
 
 shift(_::InplaceFourierSeries{0}) = ()
-shift(f::InplaceFourierSeries) =(shift(f.f)..., f.q)
+shift(f::InplaceFourierSeries) = (shift(f.f)..., f.q)
 
 
 function contract!(f::InplaceFourierSeries{N}, x::Number, ::Val{N}) where N
@@ -132,11 +138,14 @@ end
 ManyFourierSeries(fs::AbstractFourierSeries{N}...) where N =
     ManyFourierSeries{N,Tuple{map(eltype, fs)...}}(fs)
 
-function period(fs::ManyFourierSeries)
-    ref = period(fs.fs[1])
-    @assert all(map(==(ref), map(period, Base.tail(fs.fs)))) "all periods should match"
-    ref
-end
+period(f::ManyFourierSeries) = map(period, f.fs)
+
+deriv(f::ManyFourierSeries) = map(deriv, f.fs)
+
+offset(f::ManyFourierSeries) = map(offset, f.fs)
+
+shift(f::ManyFourierSeries) = map(shift, f.fs)
+
 
 function contract(fs::ManyFourierSeries{N,T}, x::Number, ::Val{dim}) where {N,T,dim}
     fxs = map(f -> contract(f, x, Val(dim)), fs.fs)
