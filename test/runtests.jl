@@ -10,7 +10,7 @@ using FourierSeriesEvaluators
 include("fourier_reference.jl")
 
 @testset "FourierSeriesEvaluators" begin
-    
+
     @testset "fourier_kernel" begin
         nxtest = 5 # number of test points
         for nctest in 1:7 # number of coefficients to test
@@ -22,35 +22,36 @@ include("fourier_reference.jl")
             OC = OffsetArray(C, Origin(ntuple(i -> -origin, n)...))
             OR = OffsetArray(R, Origin(ntuple(i -> -origin, n-1)...))
             # real and complex inputs and different orders of derivative
-            for x in (rand(nxtest)..., rand(ComplexF64, nxtest)...), (a,va) in ((0,Val(0)), (1,Val(1)), (2,2)), dim in 1:n
+            for x in (rand(nxtest)..., rand(ComplexF64, nxtest)...), a in (0, 1, 2), dim in 1:n
                 period = 2.11; k = 2pi/inv(period)
                 shift = 0
                 ref = ref_contract(C, x, k, a, dim)
                 oref = ref_contract(OC, x, k, a, dim)
                 if !(eltype(T) <: Complex)
-                    @test_throws ArgumentError fourier_contract!(R, C, x, k, va, shift, Val(dim))
+                    @test_throws ArgumentError fourier_contract!(R, C, x, k, a, shift, Val(dim))
                 else
                     # compare to reference evaluators
-                    @test ref ≈ fourier_contract!(R, C, x, k, va, shift, Val(dim))
-                    @test oref ≈ fourier_contract!(OR, OC, x, k, va, shift, Val(dim))
+                    # @show x a n
+                    @test ref ≈ fourier_contract!(R, C, x, k, a, shift, Val(dim))
+                    @test oref ≈ fourier_contract!(OR, OC, x, k, a, shift, Val(dim))
                     # test the shift
-                    @test parent(OR) ≈ fourier_contract!(R, parent(OC), x, k, va, -(origin+1), Val(dim))
+                    @test parent(OR) ≈ fourier_contract!(R, parent(OC), x, k, a, -(origin+1), Val(dim))
                 end
                 # test the allocating version
-                @test ref ≈ fourier_contract(C, x, k, va, shift, Val(dim))
-                @test oref ≈ fourier_contract(OC, x, k, va, shift, Val(dim))
+                @test ref ≈ fourier_contract(C, x, k, a, shift, Val(dim))
+                @test oref ≈ fourier_contract(OC, x, k, a, shift, Val(dim))
                 # test the 1D evaluators
                 n == 1 || continue
                 # compare to reference evaluators
-                @test ref_evaluate(C, x, k, a) ≈ fourier_evaluate(C, x, k, va)
-                @test ref_evaluate(OC, x, k, a) ≈ fourier_evaluate(OC, x, k, va)
+                @test ref_evaluate(C, x, k, a) ≈ fourier_evaluate(C, x, k, a)
+                @test ref_evaluate(OC, x, k, a) ≈ fourier_evaluate(OC, x, k, a)
                 # test the shift
-                @test ref_evaluate(OC, x, k, a) ≈ fourier_evaluate(parent(OC), x, k, va, -(origin+1))
+                @test ref_evaluate(OC, x, k, a) ≈ fourier_evaluate(parent(OC), x, k, a, -(origin+1))
             end
         end
         end
     end
-    
+
     @testset "FourierSeries" begin
         d = 3; nxtest=5
         n = 11; m = div(n,2)
@@ -67,7 +68,7 @@ include("fourier_reference.jl")
                 @test ndims(f) == d
                 @test f(x) ≈ ref_evaluate(C, x, 2pi ./ periods)
                 # test derivative
-                for (deriv, a) in ((Val(0), 0), (Val(1), 1), fill(rand(1:4, d), 2))
+                for a in (0, 1, 2)
                     f = FourierSeries(C, period=1, deriv=a)
                     @test f(x) ≈ ref_evaluate(C, x, 2pi, a)
                 end
@@ -83,7 +84,7 @@ include("fourier_reference.jl")
             end
         end
     end
-    
+
     @testset "ManyFourierSeries" begin
         d = 3; nxtest=5
         n = 11; m = div(n,2)
@@ -103,7 +104,7 @@ include("fourier_reference.jl")
             end
         end
     end
-    
+
     @testset "InplaceFourierSeries" begin
         nxtest=5
         n = 11; m = div(n,2)
@@ -120,7 +121,7 @@ include("fourier_reference.jl")
                 @test ndims(f) == d
                 @test f(x) ≈ ref_evaluate(C, x, 2pi ./ periods)
                 # test derivative
-                for (deriv, a) in ((Val(0), 0), (Val(1), 1), fill(rand(1:4, d), 2))
+                for a in (0, 1, 2)
                     f = InplaceFourierSeries(C, period=1, deriv=a)
                     @test f(x) ≈ ref_evaluate(C, x, 2pi, a)
                 end

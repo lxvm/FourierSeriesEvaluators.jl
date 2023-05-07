@@ -29,7 +29,7 @@ fill_ntuple(e::Union{Number,Val}, N) = ntuple(_ -> e, N)
 fill_ntuple(e::Tuple, _) = e
 fill_ntuple(e::AbstractArray, _) = tuple(e...)
 
-function FourierSeries(coeffs::AbstractArray{T,N}; period=2pi, deriv=Val(0), offset=0, shift=0.0) where {T,N}
+function FourierSeries(coeffs::AbstractArray{T,N}; period=2pi, deriv=0, offset=0, shift=0.0) where {T,N}
     period = fill_ntuple(period, N)
     deriv  = fill_ntuple(deriv,  N)
     offset = fill_ntuple(offset, N)
@@ -78,7 +78,7 @@ struct InplaceFourierSeries{N,T,F,C,K,A,O,Q} <: AbstractInplaceFourierSeries{N,T
         new{N,T,F,C,K,A,O,Q}(f, c, k, a, o, q)
 end
 
-function InplaceFourierSeries(coeffs::AbstractArray{T,N}; period=2pi, deriv=Val(0), offset=0, shift=0.0) where {T,N}
+function InplaceFourierSeries(coeffs::AbstractArray{T,N}; period=2pi, deriv=0, offset=0, shift=0.0) where {T,N}
     period = fill_ntuple(period, N)
     deriv  = fill_ntuple(deriv,  N)
     offset = fill_ntuple(offset, N)
@@ -148,4 +148,3 @@ evaluate(fs::ManyFourierSeries{N}, x::NTuple{N}) where N =
 
 show_details(fs::ManyFourierSeries) =
     " & $(length(fs.fs)) element$(length(fs.fs) > 1 ? "s" : "")"
-
