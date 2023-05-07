@@ -4,7 +4,7 @@ cis_inv(x::Complex) = (z = cis(x); (z, inv(z)))
 
 # this version of power should allow constant propagation in more cases than ^
 function pow(x_::Number, n::Number)
-    x = convert(promote_type(typeof(x_), typeof(n)), x_)
+    x = convert(Base.promote_op(^, typeof(x_), typeof(n)), x_)
     if iszero(n)
         one(x)
     elseif isone(n)
@@ -18,7 +18,7 @@ end
 
 # this computes pow(op(args...), n), but is lazy about computing op(args...)
 function lazypow(n::Number, op, args...)
-    iszero(n) ? one(promote_type(Base.promote_op(op, map(typeof, args)...), typeof(n))) : pow(op(args...), n)
+    iszero(n) ? one(Base.promote_op(pow, Base.promote_op(op, map(typeof, args)...), typeof(n))) : pow(op(args...), n)
 end
 
 """
