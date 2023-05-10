@@ -42,7 +42,7 @@ period(f::FourierSeries) = 2pi ./ f.k
 deleteat_(t::NTuple{N}, ::Val{i}) where {N,i} = ntuple(n -> t[n+(n>=i)], Val(N-1))
 
 function contract(f::FourierSeries{N,T}, x::Number, ::Val{dim}) where {N,T,dim}
-    c = fourier_contract(f.c, x-f.q[N], f.k[dim], f.a[dim], f.o[dim], Val(dim))
+    c = fourier_contract(f.c, x-f.q[dim], f.k[dim], f.a[dim], f.o[dim], Val(dim))
     k = deleteat_(f.k, Val(dim))
     a = deleteat_(f.a, Val(dim))
     o = deleteat_(f.o, Val(dim))
