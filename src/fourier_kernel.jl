@@ -15,11 +15,19 @@ function pow(x_::Number, n::Number)
         x^n
     end
 end
+# exponentiation is inherently type-unstable for unitful quantities so we only deal with up
+# to second derivatives
+pow(x::Number, ::Val{0}) = one(x)
+pow(x::Number, ::Val{1}) = x
+pow(x::Number, ::Val{2}) = x*x
+pow(x::Number, ::Val{a}) where {a} = pow(x, a)
 
 # this computes pow(op(args...), n), but is lazy about computing op(args...)
 function lazypow(n::Number, op, args...)
-    iszero(n) ? one(Base.promote_op(pow, Base.promote_op(op, map(typeof, args)...), typeof(n))) : pow(op(args...), n)
+    iszero(n) ? mapreduce(one, *, args) : pow(op(args...), n)
 end
+lazypow(::Val{0}, op, args...) = mapreduce(one, *, args)
+lazypow(a::Val, op, args...)   = pow(op(args...), a)
 
 """
     fourier_contract!(r::AbstractArray{T,N-1}, C::AbstractArray{T,N}, x, [k=1, a=0, shift=0, dim=Val(N)]) where {T,N}
@@ -34,9 +42,8 @@ The formula for what this routine calculates is:
 r_{i_{1},\\dots,i_{N-1}} = \\sum_{i_{N}\\in\\text{axes}(C,N)} C_{i_{1},\\dots,i_{N-1},i_{N}+m+1} (ik (i_{N} + \\text{shift}))^{a} \\exp(ik x (i_{N} + \\text{shift}))
 ```
 """
-@fastmath function fourier_contract!(r::AbstractArray{R,N_}, C::AbstractArray{T,N}, x, k=oftype(x,1), a=0, shift::Integer=0, ::Val{dim}=Val(N)) where {R,T,N,N_,dim}
+function fourier_contract!(r::AbstractArray{R,N_}, C::AbstractArray{T,N}, x, k=inv(oneunit(x)), a=0, shift::Integer=0, ::Val{dim}=Val(N)) where {R,T,N,N_,dim}
     N != N_+1 && throw(ArgumentError("array dimensions incompatible"))
-    R == fourier_type(T, x) || throw(ArgumentError("result array of element type $R needs to store values of type $(fourier_type(T, x))"))
 
     1 <= dim <= N || throw(ArgumentError("selected dimension to contract is out of bounds"))
     ax = axes(r)
@@ -51,7 +58,9 @@ r_{i_{1},\\dots,i_{N-1}} = \\sum_{i_{N}\\in\\text{axes}(C,N)} C_{i_{1},\\dots,i_
     c  = firstindex(C, dim) # Find the index offset
     c += M = div(s, 2)      # translate to find axis center
     z  = cis(k*x*(c+shift)) # the initial offset phase
-    z *= lazypow(a, *, im, k) # apply global Fourier multiplier (see expression defined above)
+    z *= m = lazypow(a, *, im, k) # apply global Fourier multiplier (see expression defined above)
+
+    R == typeof(oneunit(fourier_type(T, x))*m) || throw(ArgumentError("result array of element type $R needs to store values of type $(typeof(oneunit(fourier_type(T, x))*m))"))
 
     # unroll first loop iteration
     b = !isev * z * lazypow(a, +, c, shift)      # obtain Fourier coefficient
@@ -86,18 +95,27 @@ r_{i_{1},\\dots,i_{N-1}} = \\sum_{i_{N}\\in\\text{axes}(C,N)} C_{i_{1},\\dots,i_
 end
 
 """
-    fourier_contract(C::Vector, x, [k=1, a=0, shift=0, dim=Val(N)])
+    fourier_allocate(C, x, k, a, ::Val{dim})
 
-Identical to [`fourier_contract!`](@ref) except that it allocates its output.
+Allocate an array of the correct type for contracting the Fourier series along axis `dim`.
 """
-function fourier_contract(C::AbstractArray{T,N}, x, k=1, a=0, shift=0, ::Val{dim}=Val(N)) where {T,N,dim}
-    # make a copy of the uncontracted dimensions of C while preserving the axes
+function fourier_allocate(C::AbstractArray{T,N}, x, k, a, ::Val{dim}) where {T,N,dim}
     ax = axes(C)
     prefix = CartesianIndices(ax[1:dim-1])
     suffix = CartesianIndices(ax[dim+1:N])
     v = view(C, prefix, first(axes(C, dim)), suffix)
-    r = similar(v, fourier_type(T,x))
-    fourier_contract!(r, C, x, k, a, shift, Val(dim))
+    return similar(v, typeof(oneunit(fourier_type(T,x))*pow(k, a)))
+end
+
+"""
+    fourier_contract(C::Vector, x, [k=1, a=0, shift=0, dim=Val(N)])
+
+Identical to [`fourier_contract!`](@ref) except that it allocates its output.
+"""
+function fourier_contract(C::AbstractArray{T,N}, x, k=inv(oneunit(x)), a=0, shift=0, ::Val{dim}=Val(N)) where {T,N,dim}
+    # make a copy of the uncontracted dimensions of C while preserving the axes
+    r = fourier_allocate(C, x, k, a, Val(dim))
+    return fourier_contract!(r, C, x, k, a, shift, Val(dim))
 end
 
 """
@@ -112,7 +130,7 @@ The formula for what this routine calculates is:
 r = \\sum_{i_{\\in\\text{axes}(C,1)} C_{i} (ik (i + \\text{shift}))^{a} \\exp(ik x (i + \\text{shift}))
 ```
 """
-@fastmath function fourier_evaluate(C::AbstractVector, x, k=oftype(x,1), a=0, shift::Integer=0)
+function fourier_evaluate(C::AbstractVector, x, k=inv(oneunit(x)), a=0, shift::Integer=0)
     dim = 1
     s  = size(C, dim); isev = iseven(s)
     c  = firstindex(C, dim) # Find the index offset
