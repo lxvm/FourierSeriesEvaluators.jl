@@ -29,7 +29,7 @@ fill_ntuple(e::Union{Number,Val}, N) = ntuple(_ -> e, N)
 fill_ntuple(e::Tuple, _) = e
 fill_ntuple(e::AbstractArray, _) = tuple(e...)
 
-function FourierSeries(coeffs::AbstractArray{T,N}; period=2pi, deriv=0, offset=0, shift=0.0) where {T,N}
+function FourierSeries(coeffs::AbstractArray{T,N}; period=2pi, deriv=0, offset=0, shift=zero(period)) where {T,N}
     period = fill_ntuple(period, N)
     deriv  = fill_ntuple(deriv,  N)
     offset = fill_ntuple(offset, N)
@@ -45,15 +45,22 @@ offset(f::FourierSeries) = f.o
 
 shift(f::FourierSeries) = f.q
 
-deleteat_(t::NTuple{N}, ::Val{i}) where {N,i} = ntuple(n -> t[n+(n>=i)], Val(N-1))
+deleteat_(t::Tuple, v::Val{i}) where {i} = deleteat__(v, t...)
+deleteat__(::Val{i}, t1, t...) where {i} = (t1, deleteat__(Val(i-1), t...)...)
+deleteat__(::Val{1}, t1, t...) = t
 
-function contract(f::FourierSeries{N,T}, x::Number, ::Val{dim}) where {N,T,dim}
-    c = fourier_contract(f.c, x-f.q[dim], f.k[dim], f.a[dim], f.o[dim], Val(dim))
+function contract!(c::AbstractArray{T,M}, f::FourierSeries{N,S}, x::Number, ::Val{dim}) where {M,T,N,S,dim}
+    fourier_contract!(c, f.c, x-f.q[dim], f.k[dim], f.a[dim], f.o[dim], Val(dim))
     k = deleteat_(f.k, Val(dim))
     a = deleteat_(f.a, Val(dim))
     o = deleteat_(f.o, Val(dim))
     q = deleteat_(f.q, Val(dim))
-    FourierSeries{N-1,eltype(c)}(c, k, a, o, q)
+    return FourierSeries{M,T}(c, k, a, o, q)
+end
+
+function contract(f::FourierSeries{N,T}, x::Number, ::Val{dim}) where {N,T,dim}
+    r = fourier_allocate(f.c, x, f.k[dim], f.a[dim], Val(dim))
+    return contract!(r, f, x, Val(dim))
 end
 
 evaluate(f::FourierSeries{1}, x::NTuple{1}) =
@@ -64,66 +71,6 @@ coefficients(f::FourierSeries) = f.c
 
 show_details(f::FourierSeries) =
     " & $(f.a) derivative & $(f.o) offset & $(f.q) shift"
-
-
-"""
-    InplaceFourierSeries(coeffs::AbstractArray; period=2pi, offset=0, deriv=0, shift=0)
-
-Similar to [`FourierSeries`](@ref) except that it doesn't allocate new arrays
-for every call to `contract` and `contract` is limited to the outermost
-dimension/variable of the series.
-"""
-struct InplaceFourierSeries{N,T,F,C,K,A,O,Q} <: AbstractInplaceFourierSeries{N,T}
-    f::F
-    c::C
-    k::K
-    a::A
-    o::O
-    q::Q
-    InplaceFourierSeries{N,T}(f::F, c::C, k::K, a::A, o::O, q::Q) where {N,T,F,C<:AbstractArray{T,N},K,A,O,Q} =
-        new{N,T,F,C,K,A,O,Q}(f, c, k, a, o, q)
-end
-
-function InplaceFourierSeries(coeffs::AbstractArray{T,N}; period=2pi, deriv=0, offset=0, shift=0.0) where {T,N}
-    period = fill_ntuple(period, N)
-    deriv  = fill_ntuple(deriv,  N)
-    offset = fill_ntuple(offset, N)
-    shift  = fill_ntuple(shift,  N)
-    v = view(coeffs, ntuple(n -> n==N ? first(axes(coeffs,n)) : axes(coeffs,n), Val{N}())...)
-    c = similar(v, fourier_type(T,eltype(period)))
-    f = InplaceFourierSeries(c; period=period[1:N-1], deriv=deriv[1:N-1], offset=offset[1:N-1], shift=shift[1:N-1])
-    InplaceFourierSeries{N,T}(f, coeffs, 2pi/period[N], deriv[N], offset[N], shift[N])
-end
-function InplaceFourierSeries(coeffs::AbstractArray{T,0}; period=(), deriv=(), offset=(), shift=()) where T
-    InplaceFourierSeries{0,T}((), coeffs, period, deriv, offset, shift)
-end
-
-period(_::InplaceFourierSeries{0}) = ()
-period(f::InplaceFourierSeries) = (period(f.f)..., 2pi ./ f.k)
-
-deriv(_::InplaceFourierSeries{0}) = ()
-deriv(f::InplaceFourierSeries) = (deriv(f.f)..., f.a)
-
-offset(_::InplaceFourierSeries{0}) = ()
-offset(f::InplaceFourierSeries) = (offset(f.f)..., f.o)
-
-shift(_::InplaceFourierSeries{0}) = ()
-shift(f::InplaceFourierSeries) = (shift(f.f)..., f.q)
-
-
-function contract!(f::InplaceFourierSeries{N}, x::Number, ::Val{N}) where N
-    fourier_contract!(f.f.c, f.c, x-f.q, f.k, f.a, f.o, Val(N))
-    return f.f
-end
-
-evaluate(f::InplaceFourierSeries{1}, x::NTuple{1}) =
-    fourier_evaluate(f.c, x[1]-f.q, f.k, f.a, f.o)
-
-coefficients(f::InplaceFourierSeries) = f.c
-
-show_details(f::InplaceFourierSeries) =
-    " & $(deriv(f)) derivative & $(offset(f)) offset & $(shift(f)) shift"
-
 
 """
     ManyFourierSeries(fs::AbstractFourierSeries{N}...) where {N}
@@ -138,7 +85,11 @@ end
 ManyFourierSeries(fs::AbstractFourierSeries{N}...) where N =
     ManyFourierSeries{N,Tuple{map(eltype, fs)...}}(fs)
 
-period(f::ManyFourierSeries) = map(period, f.fs)
+function period(fs::ManyFourierSeries)
+    ref = period(fs.fs[1])
+    @assert all(map(==(ref), map(period, Base.tail(fs.fs)))) "all periods should match"
+    ref
+end
 
 deriv(f::ManyFourierSeries) = map(deriv, f.fs)
 
@@ -147,9 +98,14 @@ offset(f::ManyFourierSeries) = map(offset, f.fs)
 shift(f::ManyFourierSeries) = map(shift, f.fs)
 
 
-function contract(fs::ManyFourierSeries{N,T}, x::Number, ::Val{dim}) where {N,T,dim}
+function contract(fs::ManyFourierSeries{N}, x::Number, ::Val{dim}) where {N,dim}
     fxs = map(f -> contract(f, x, Val(dim)), fs.fs)
-    ManyFourierSeries{N-1,Tuple{map(eltype, fxs)...}}(fxs)
+    return ManyFourierSeries{N-1,Tuple{map(eltype, fxs)...}}(fxs)
+end
+
+function contract!(cs, fs::ManyFourierSeries{N}, x, ::Val{dim}) where {N,dim}
+    gs = map((c,f) -> contract!(c, f, x, Val(dim)), cs, fs)
+    return ManyFourierSeries{N-1,Tuple{map(eltype, fs)...}}(gs)
 end
 
 evaluate(fs::ManyFourierSeries{N}, x::NTuple{N}) where N =
@@ -157,3 +113,5 @@ evaluate(fs::ManyFourierSeries{N}, x::NTuple{N}) where N =
 
 show_details(fs::ManyFourierSeries) =
     " & $(length(fs.fs)) element$(length(fs.fs) > 1 ? "s" : "")"
+
+coefficients(f::ManyFourierSeries) = map(coefficients, f.fs)

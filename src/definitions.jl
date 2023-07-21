@@ -26,22 +26,11 @@ of `f` with the phase factors evaluated at `x`.
 function contract end
 
 """
-    AbstractInplaceFourierSeries{N,T} <: AbstractFourierSeries{N,T}
-
-A supertype for Fourier series evaluated in place. These define the `contract!`
-method instead of `contract`.
-"""
-abstract type AbstractInplaceFourierSeries{N,T} <: AbstractFourierSeries{N,T} end
-
-"""
-    contract!(f::AbstractInplaceFourierSeries, x::Number, dim::Type{Val{d}})
+    contract!(g::AbstractFourierSeries, f::AbstractFourierSeries, x::Number, dim::Type{Val{d}})
 
 An in-place version of `contract`, however the argument `dim` must be a `Val{d}`
 in order to dispatch to the specific contract method. This should return `f`.
 
-!!! note "For developers"
-    An [`AbstractInplaceFourierSeries`](@ref) only needs to implement
-    `contract!`, which is set up to be called by [`contract`](@ref)
 """
 function contract! end
 
@@ -68,17 +57,11 @@ length for the problem.
 function period end
 
 """
-    coefficients(f::AbstractFourierSeries) = nothing
+    coefficients(f::AbstractFourierSeries)
 
-Return the underlying array representing the Fourier series, if applicable.
-There are cases with multiple Fourier series where this many not make sense.
+Return the underlying array(s) representing the Fourier series.
 """
-coefficients(::AbstractFourierSeries) = nothing
-
-# abstract methods
-
-contract(f::AbstractInplaceFourierSeries{N}, x::Number, ::Val{d}=Val(N)) where {N,d} =
-    contract!(f, x, Val(d))
+function coefficients end
 
 evaluate(f::AbstractFourierSeries{N}, x::NTuple{N}) where N =
     evaluate(contract(f, x[N], Val(N)), x[1:N-1])
@@ -104,21 +87,28 @@ Base.eltype(::Type{<:AbstractFourierSeries{N,T}}) where {N,T} = T
 
 Returns the type of `exp(im*x)`.
 """
-phase_type(x) = Base.promote_op(cis, eltype(x))
+phase_type(x) = Base.promote_op(cis, typeof(one(eltype(x))))
+
+deriv_type(x, a) = complex(typeof(inv(oneunit(eltype(x))^a)))
 
 """
     fourier_type(::Type{T}, x) where T = Base.promote_op(*, T, phase_type(x))
-    fourier_type(C::AbstractFourierSeries, x) = fourier_type(eltype(f), x)
-
-Returns the output type of the Fourier series.
 """
 fourier_type(::Type{T}, x) where T =
     Base.promote_op(*, T, phase_type(x))
-fourier_type(f::AbstractFourierSeries, x) =
-    fourier_type(eltype(f), x)
 
-show_dims(f::AbstractFourierSeries) = show_dims(f, coefficients(f))
-show_dims(_, A::AbstractArray) = Base.dims2string(length.(axes(A))) * " "
+"""
+    fourier_type(C::AbstractFourierSeries, x) = typeof(f(x))
+
+Returns the output type of the Fourier series.
+"""
+function fourier_type(f::AbstractFourierSeries, x)
+    return typeof(f(ntuple(_ -> zero(eltype(x)), Val(ndims(f)))))
+end
+
+show_dims(f::AbstractFourierSeries) = show_dims(f, coefficients(f)) * " "
+show_dims(f, t::Tuple) = "(" * join(map(s -> show_dims(f,s), t), ", ") * ")"
+show_dims(_, A::AbstractArray) = Base.dims2string(length.(axes(A)))
 show_dims(f, ::Nothing) = "$(ndims(f))-dimensional "
 show_details(::AbstractFourierSeries) = ""
 
