@@ -22,7 +22,6 @@ These routines have the following features
 module FourierSeriesEvaluators
 
 export AbstractFourierSeries
-export period, contract, contract!, evaluate, phase_type, fourier_type
 include("definitions.jl")
 
 export fourier_contract, fourier_contract!, fourier_evaluate, fourier_allocate

@@ -30,6 +30,13 @@ lazypow(::Val{0}, op, args...) = mapreduce(one, *, args)
 lazypow(a::Val, op, args...)   = pow(op(args...), a)
 
 """
+    fourier_type(::Type{T}, x) where {T}
+
+Return the type of the output of a Fourier series with coefficient type `T` and input `x`.
+"""
+fourier_type(::Type{T}, x) where {T} = typeof(zero(T)*cis(one(eltype(x))))
+
+"""
     fourier_contract!(r::AbstractArray{T,N-1}, C::AbstractArray{T,N}, x, [k=1, a=0, shift=0, dim=Val(N)]) where {T,N}
 
 Contract dimension `dim` of array `C` and write it to the array `r`, whose
