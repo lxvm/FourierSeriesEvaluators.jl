@@ -61,35 +61,43 @@ end
 evaluate(f::FourierSeries{1}, x::NTuple{1}) =
     fourier_evaluate(f.c, x[1]-f.q[1], f.k[1], f.a[1], f.o[1])
 
+period(f::FourierSeries) = f.p
+
 show_dims(f::FourierSeries) = Base.dims2string(length.(axes(f.c))) * " "
-show_details(f::FourierSeries) = " with $(eltype(f.c)) coefficients, $(f.p) period, $(f.a) derivative, $(f.o) offset, $(f.q) shift"
+show_details(f::FourierSeries) = " with $(eltype(f.c)) coefficients, $(f.a) derivative, $(f.o) offset, $(f.q) shift"
 
 """
-    ManyFourierSeries(fs::AbstractFourierSeries{N}...) where {N}
+    ManyFourierSeries(fs::AbstractFourierSeries{N}...; period) where {N}
 
 Represents a tuple of Fourier series of the same dimension and
 contracts them all simultaneously.
 """
-struct ManyFourierSeries{N,F} <: AbstractFourierSeries{N}
+struct ManyFourierSeries{N,F,P} <: AbstractFourierSeries{N}
     fs::F
-    function ManyFourierSeries(fs::Tuple{Vararg{AbstractFourierSeries{N}}}) where {N}
-        return new{N,typeof(fs)}(fs)
+    p::P
+    function ManyFourierSeries(fs::Tuple{Vararg{AbstractFourierSeries{N}}}, p::Tuple{Vararg{Any,N}}) where {N}
+        return new{N,typeof(fs),typeof(p)}(fs, p)
     end
 end
-function ManyFourierSeries(fs::AbstractFourierSeries{N}...) where {N}
-    return ManyFourierSeries(fs)
+function ManyFourierSeries(fs::AbstractFourierSeries{N}...; period=2pi) where {N}
+    return ManyFourierSeries(fs, fill_ntuple(period, N))
 end
 
 function allocate(fs::ManyFourierSeries, x, dim)
-    return map(f -> allocate(f, x, dim), fs.fs)
+    k = inv(period(fs, dim))
+    return map(f -> allocate(f, x*k*period(f, dim), dim), fs.fs)
 end
 
 function contract!(cs, fs::ManyFourierSeries, x, dim)
-    return ManyFourierSeries(map((c,f) -> contract!(c, f, x, dim), cs, fs))
+    k = inv(period(fs, dim))
+    return ManyFourierSeries(map((c,f) -> contract!(c, f, x*k*period(f, dim), dim), cs, fs))
 end
 
 function evaluate(fs::ManyFourierSeries{N}, x::NTuple{N}) where {N}
-    return map(f -> evaluate(f, x), fs.fs)
+    k = map(inv, period(fs))
+    return map(f -> evaluate(f, map(*, x,k,period(f))), fs.fs)
 end
+
+period(f::ManyFourierSeries) = f.p
 
 show_details(fs::ManyFourierSeries) = " with $(length(fs.fs)) series"

@@ -45,6 +45,14 @@ tuple and the Fourier series is contracted along the outer dimension.
 """
 function evaluate end
 
+"""
+    period(f::AbstractFourierSeries, [dim])
+
+Return a tuple containing the periodicity of `f`. Optionally you can specify a dimension to
+just get the period of that dimension.
+"""
+function period end
+
 # abstract methods
 
 """
@@ -58,14 +66,18 @@ contract(f::AbstractFourierSeries, x, dim) = contract!(allocate(f, x, dim), f, x
 evaluate(f::AbstractFourierSeries{N}, x::NTuple{N}) where N =
     evaluate(contract(f, x[N], Val(N)), x[1:N-1])
 
+period(f::AbstractFourierSeries, dim::Integer) = period(f)[dim]
+period(f::AbstractFourierSeries, ::Val{d}) where {d} = period(f)[d]
+
 # docstring in type definition above
 (f::AbstractFourierSeries)(x) = evaluate(f, promote(x...))
 
 Base.ndims(::AbstractFourierSeries{N}) where N = N
 
 show_dims(::AbstractFourierSeries{N}) where {N} = "$N-dimensional "
+show_period(f::AbstractFourierSeries) = "and $(period(f))-periodic "
 show_details(::AbstractFourierSeries) = ""
 
 Base.summary(f::AbstractFourierSeries) =
-    string(show_dims(f), nameof(typeof(f)), show_details(f))
+    string(show_dims(f), show_period(f), nameof(typeof(f)), show_details(f))
 Base.show(io::IO, f::AbstractFourierSeries) = print(io, summary(f))
