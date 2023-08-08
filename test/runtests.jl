@@ -5,6 +5,7 @@ using OffsetArrays: OffsetArray, Origin
 using StaticArrays
 
 using FourierSeriesEvaluators
+using FourierSeriesEvaluators: raise_multiplier
 
 # TODO: validate the reference functions against FFTW
 include("fourier_reference.jl")
@@ -91,7 +92,7 @@ include("fourier_reference.jl")
         for T in (ComplexF64, SMatrix{5,5,ComplexF64,25})
             periods = rand(d)
             fs = ntuple(_ -> FourierSeries(rand(T, ntuple(_->n, d)...), period=periods), nfs)
-            mfs = ManyFourierSeries(fs...)
+            mfs = ManyFourierSeries(fs..., period=periods)
             # test period
             @test ndims(mfs) == d
             for _ in 1:nxtest
@@ -102,4 +103,47 @@ include("fourier_reference.jl")
         end
     end
 
+    @testset "GradientSeries" begin
+        d = 3
+        n = 11; m = div(n,2)
+        for T in (ComplexF64, SMatrix{5,5,ComplexF64,25})
+            periods = rand(d)
+            f = FourierSeries(rand(T, ntuple(_->n, d)...), period=periods)
+            g = GradientSeries(f)
+            gs = map(dim -> FourierSeries(f.c, f.p, f.k, raise_multiplier(f.a, Val(dim)), f.o, f.q), 1:d)
+            for x in ((0,0,0), (0.1im,complex(0.2), complex(-0.3,0.4)), rand(d))
+                fx, dfx = g(x)
+                @test fx ≈ f(x)
+                for i in 1:d
+                    @test dfx[i] ≈ gs[i](x)
+                end
+            end
+        end
+    end
+
+    @testset "HessianSeries" begin
+        d = 3
+        n = 11; m = div(n,2)
+        for T in (ComplexF64, SMatrix{5,5,ComplexF64,25})
+            periods = rand(d)
+            f = FourierSeries(rand(T, ntuple(_->n, d)...), period=periods)
+            h = HessianSeries(f)
+            hs = map(1:d) do dim1
+                map(dim1:d) do dim2
+                    a = raise_multiplier(raise_multiplier(f.a, Val(dim1)), Val(dim2))
+                    return FourierSeries(f.c, f.p, f.k, a, f.o, f.q)
+                end
+            end
+
+            for x in ((0,0,0), (0.1im,complex(0.2), complex(-0.3,0.4)), rand(d))
+                fx, dfx, d2fx = h(x)
+                @test fx ≈ f(x)
+                for i in 1:d
+                    for j in ((i:d) .- (i-1))
+                        @test d2fx[i][j] ≈ hs[i][j](x)
+                    end
+                end
+            end
+        end
+    end
 end
