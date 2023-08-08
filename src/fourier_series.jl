@@ -103,10 +103,10 @@ period(f::ManyFourierSeries) = f.p
 
 show_details(fs::ManyFourierSeries) = " with $(length(fs.fs)) series"
 
+# Differentiating Fourier series
 
-raise_multiplier(::Val{0}) = Val(1)
-raise_multiplier(::Val{1}) = Val(2)
 raise_multiplier(a) = a + 1
+raise_multiplier(::Val{a}) where {a} = Val(a+1)
 
 function raise_multiplier(t, ::Val{d}) where {d}
     return ntuple(n -> n == d ? raise_multiplier(t[n]) : t[n], Val(length(t)))
@@ -116,101 +116,80 @@ function nextderivative(f::FourierSeries, dim)
     return FourierSeries(f.c, f.p, f.k, raise_multiplier(f.a, dim), f.o, f.q)
 end
 
+function nextderivative(fs::ManyFourierSeries, dim)
+    return ManyFourierSeries(map(f -> nextderivative(f, dim), fs.fs), period(fs))
+end
+
+struct DerivativeSeries{O,N,F,DF} <: AbstractFourierSeries{N}
+    f::F
+    df::DF
+    function DerivativeSeries{O}(f::AbstractFourierSeries{N}, df::ManyFourierSeries{N}) where {O,N}
+        return new{O,N,typeof(f),typeof(df)}(f, df)
+    end
+end
+
 """
-    GradientSeries(f::FourierSeries)
+    DerivativeSeries{O}(f::FourierSeries)
 
-Construct an evaluator of a Fourier series and its gradient, which are evaluated to `(f,
-(df_dx1, ... df_dxN))`. This evaluator minimizes the number of contractions.
+Construct an evaluator of a Fourier series and all of its derivatives up to order `O`, which
+must be a positive integer. `O=1` gives the gradient, `O=2` gives the Hessian, and so on.
+The derivatives are returned in order as a tuple `(f(x), df(x), d2f(x), ..., dOf(x))` where
+the entry of order `O` is given by:
+- `O=0`: `f`
+- `O=1`: `(dfdx1, ..., dfdxN)`
+- `O=2`: `((d2fdx1dx1, ..., d2fdx1dxN), ..., (d2fdxNdxN,))`
+- `O=3`: `(((d3fdx1dx1dx1, ..., d3fdx1dx1dxN), ..., (d3fdx1dxNdxN,)), ..., ((d3fdxNdxNdxN,),))`
+and so on. The fewest number of contractions are made to compute all derivatives.
+As can be seen from the pattern above, the `O`-th derivative with
+partial derivatives `i = [a_1 ≤ ... ≤ a_N]` is stored in `ds(x)[O+1][i[1]][i[2]]...[i[N]]`.
+These indices are given by the simplical generalization of [triangular
+numbers](https://en.wikipedia.org/wiki/Triangular_number). For examples of how to index into
+the solution see the unit tests.
 """
-struct GradientSeries{N,C,P,K,A,O,Q,F,R} <: AbstractFourierSeries{N}
-    f::FourierSeries{N,C,P,K,A,O,Q}
-    df::ManyFourierSeries{N,F,R}
+function DerivativeSeries{O}(f::FourierSeries) where {O}
+    O isa Integer || throw(ArgumentError("Derivative order must be an integer"))
+    if O == 0
+        return f
+    elseif O > 0
+        return DerivativeSeries{O}(DerivativeSeries{O-1}(f), ManyFourierSeries((),period(f)))
+    else
+        throw(ArgumentError("Derivatives of negative order not supported"))
+    end
 end
 
-function GradientSeries(f::FourierSeries)
-    return GradientSeries(f, ManyFourierSeries((),period(f)))
+function nextderivative(d::DerivativeSeries{1}, dim)
+    df = nextderivative(d.f, dim)
+    return ManyFourierSeries(df, d.df.fs..., period=period(d.df))
+end
+function nextderivative(d::DerivativeSeries, dim)
+    df = nextderivative(nextderivative(d.f, dim), dim)
+    return ManyFourierSeries(df, d.df.fs..., period=period(d.df))
 end
 
-# technically if the period of f and df don't match then the rescaling of the periods should
-# be incorporated into the derivative. However, we do not control the output type so we
-# can't multiply by the factor of the chain rule. Let's call it a feature for users who want
-# to apply a constant scaling to the gradient
-
-function nextgradient(g::GradientSeries, dim)
-    f, df = g.f, g.df
-    return ManyFourierSeries(nextderivative(f, dim), df.fs..., period=period(df))
-end
-
-function allocate(g::GradientSeries, x, dim)
-    f_cache = allocate(g.f, x, dim)
-    df = nextgradient(g, dim)
-    df_cache = allocate(df, x * period(df, dim) / period(g, dim), dim)
+function allocate(d::DerivativeSeries, x, dim)
+    f_cache = allocate(d.f, x, dim)
+    df = nextderivative(d, dim)
+    df_cache = allocate(df, x * period(df, dim) / period(d, dim), dim)
     return (f_cache, df_cache)
 end
 
-function contract!(cache, g::GradientSeries, x, dim)
-    fx = contract!(cache[1], g.f, x, dim)
-    df = nextgradient(g, dim)
-    dfx = contract!(cache[2], df, x * period(df, dim) / period(g, dim), dim)
-    return GradientSeries(fx, dfx)
+function contract!(cache, d::DerivativeSeries{O}, x, dim) where {O}
+    fx = contract!(cache[1], d.f, x, dim)
+    df = nextderivative(d, dim)
+    dfx = contract!(cache[2], df, x * period(df, dim) / period(d, dim), dim)
+    return DerivativeSeries{O}(fx, dfx)
 end
 
-function evaluate(g::GradientSeries{1}, x::NTuple{1})
-    fx = evaluate(g.f, x)
-    df = nextgradient(g, Val(1))
-    dfx = evaluate(df, map(*, x, period(df), map(inv, period(g))))
-    return (fx, dfx)
+function evaluate(d::DerivativeSeries{O,1}, x::NTuple{1}) where {O}
+    fx = evaluate(d.f, x)
+    df = nextderivative(d, Val(1))
+    dfx = evaluate(df, map(*, x, period(df), map(inv, period(d))))
+    return fx isa Tuple ? (fx..., dfx) : (fx, dfx)
 end
 
-period(g::GradientSeries) = period(g.f)
+period(d::DerivativeSeries) = period(d.f)
 
+show_details(::DerivativeSeries{O}) where {O} = " of order $O"
 
-"""
-    HessianSeries(f::FourierSeries)
-
-Construct an evaluator of a Fourier series, its gradient, and its Hessian.
-They are evaluated to `(f, (df_dx1, ... df_dxN), ((d2f_dx1dx1, d2f_dx1dx2, ..., d2f_dx1dxN),
-...., (d2f_dxNdxN,)))`.
-This evaluator minimizes the number of contractions.
-"""
-struct HessianSeries{N,C,P,K,A,O,Q,F,R,G,S} <: AbstractFourierSeries{N}
-    g::GradientSeries{N,C,P,K,A,O,Q,F,R}
-    d2f::ManyFourierSeries{N,G,S}
-end
-
-function HessianSeries(f::FourierSeries)
-    return HessianSeries(GradientSeries(f), ManyFourierSeries((), period(f)))
-end
-
-function nexthessian(h::HessianSeries, dim)
-    g, d2f = h.g, h.d2f
-    dg = nextgradient(g, dim)
-    dgdim = ManyFourierSeries(map(f -> nextderivative(f, dim), dg.fs), period(dg))
-    return ManyFourierSeries(dgdim, d2f.fs..., period=period(d2f))
-end
-
-function allocate(h::HessianSeries, x, dim)
-    g_cache = allocate(h.g, x, dim)
-    d2f = nexthessian(h, dim)
-    d2f_cache = allocate(d2f, x * period(d2f, dim) / period(h, dim), dim)
-    return (g_cache, d2f_cache)
-end
-
-function contract!(cache, h::HessianSeries, x, dim)
-    gx = contract!(cache[1], h.g, x, dim)
-    d2f = nexthessian(h, dim)
-    d2fx = contract!(cache[2], d2f, x * period(d2f, dim) / period(h, dim), dim)
-    return HessianSeries(gx, d2fx)
-end
-
-function evaluate(h::HessianSeries{1}, x::NTuple{1})
-    gx = evaluate(h.g, x)
-    d2f = nexthessian(h, Val(1))
-    d2fx = evaluate(d2f, map(*, x, period(d2f), map(inv, period(h))))
-    return (gx..., d2fx)
-end
-
-period(h::HessianSeries) = period(h.g)
-
-# There is a repetitive pattern for taking higher-order derivatives, and perhaps it can be
-# generalized to higher dimensions by dispatching nextderivative on the order of derivative
+const JacobianSeries = DerivativeSeries{1}
+const HessianSeries  = DerivativeSeries{2}

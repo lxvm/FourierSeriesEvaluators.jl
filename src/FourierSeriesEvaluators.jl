@@ -27,7 +27,7 @@ include("definitions.jl")
 export fourier_contract, fourier_contract!, fourier_evaluate, fourier_allocate
 include("fourier_kernel.jl")
 
-export FourierSeries, ManyFourierSeries, GradientSeries, HessianSeries
+export FourierSeries, ManyFourierSeries, DerivativeSeries, JacobianSeries, HessianSeries
 include("fourier_series.jl")
 
 end

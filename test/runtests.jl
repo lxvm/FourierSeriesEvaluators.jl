@@ -103,45 +103,57 @@ include("fourier_reference.jl")
         end
     end
 
-    @testset "GradientSeries" begin
+    @testset "DerivativeSeries" for order in 1:3
         d = 3
         n = 11; m = div(n,2)
         for T in (ComplexF64, SMatrix{5,5,ComplexF64,25})
             periods = rand(d)
             f = FourierSeries(rand(T, ntuple(_->n, d)...), period=periods)
-            g = GradientSeries(f)
-            gs = map(dim -> FourierSeries(f.c, f.p, f.k, raise_multiplier(f.a, Val(dim)), f.o, f.q), 1:d)
-            for x in ((0,0,0), (0.1im,complex(0.2), complex(-0.3,0.4)), rand(d))
-                fx, dfx = g(x)
-                @test fx ≈ f(x)
-                for i in 1:d
-                    @test dfx[i] ≈ gs[i](x)
-                end
-            end
-        end
-    end
-
-    @testset "HessianSeries" begin
-        d = 3
-        n = 11; m = div(n,2)
-        for T in (ComplexF64, SMatrix{5,5,ComplexF64,25})
-            periods = rand(d)
-            f = FourierSeries(rand(T, ntuple(_->n, d)...), period=periods)
-            h = HessianSeries(f)
-            hs = map(1:d) do dim1
-                map(dim1:d) do dim2
-                    a = raise_multiplier(raise_multiplier(f.a, Val(dim1)), Val(dim2))
-                    return FourierSeries(f.c, f.p, f.k, a, f.o, f.q)
-                end
-            end
-
-            for x in ((0,0,0), (0.1im,complex(0.2), complex(-0.3,0.4)), rand(d))
-                fx, dfx, d2fx = h(x)
-                @test fx ≈ f(x)
-                for i in 1:d
-                    for j in ((i:d) .- (i-1))
-                        @test d2fx[i][j] ≈ hs[i][j](x)
+            ds = DerivativeSeries{order}(f)
+            dOs = if order == 1
+                map(dim -> FourierSeries(f.c, f.p, f.k, raise_multiplier(f.a, Val(dim)), f.o, f.q), 1:d)
+            elseif order == 2
+                map(1:d) do dim1
+                    map(dim1:d) do dim2
+                        a = raise_multiplier(raise_multiplier(f.a, Val(dim1)), Val(dim2))
+                        return FourierSeries(f.c, f.p, f.k, a, f.o, f.q)
                     end
+                end
+            elseif order == 3
+                map(1:d) do dim1
+                    map(dim1:d) do dim2
+                        map(dim2:d) do dim3
+                            a = raise_multiplier(raise_multiplier(raise_multiplier(f.a, Val(dim1)), Val(dim2)), Val(dim3))
+                            return FourierSeries(f.c, f.p, f.k, a, f.o, f.q)
+                        end
+                    end
+                end
+            else
+                throw(ArgumentError("no test case for order $order derivatives"))
+            end
+            for x in ((0,0,0), (0.1im,complex(0.2), complex(-0.3,0.4)), rand(d))
+                fx, dOfx = ds(x)[[1,order+1]]
+                @test fx ≈ f(x)
+                if order == 1
+                    for i in 1:d
+                        @test dOfx[i] ≈ dOs[i](x)
+                    end
+                elseif order == 2
+                    for i in 1:d
+                        for j in i:d
+                            @test dOfx[i][j-i+1] ≈ dOs[i][j-i+1](x)
+                        end
+                    end
+                elseif order == 3
+                    for i in 1:d
+                        for j in i:d
+                            for k in j:d
+                                @test dOfx[i][j-i+1][k-j+1] ≈ dOs[i][j-i+1][k-j+1](x)
+                            end
+                        end
+                    end
+                else
+                    throw(ArgumentError("no test case for order $order derivatives"))
                 end
             end
         end
