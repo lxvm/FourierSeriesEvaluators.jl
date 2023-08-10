@@ -146,7 +146,7 @@ These indices are given by the simplical generalization of [triangular
 numbers](https://en.wikipedia.org/wiki/Triangular_number). For examples of how to index into
 the solution see the unit tests.
 """
-function DerivativeSeries{O}(f::FourierSeries) where {O}
+function DerivativeSeries{O}(f::AbstractFourierSeries) where {O}
     O isa Integer || throw(ArgumentError("Derivative order must be an integer"))
     if O == 0
         return f
