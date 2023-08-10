@@ -184,7 +184,7 @@ function evaluate(d::DerivativeSeries{O,1}, x::NTuple{1}) where {O}
     fx = evaluate(d.f, x)
     df = nextderivative(d, Val(1))
     dfx = evaluate(df, map(*, x, period(df), map(inv, period(d))))
-    return fx isa Tuple ? (fx..., dfx) : (fx, dfx)
+    return O === 1 ? (fx, dfx) : (fx..., dfx)
 end
 
 period(d::DerivativeSeries) = period(d.f)
