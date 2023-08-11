@@ -128,6 +128,13 @@ dimension. The 1-D formula for what this routine calculates is:
 ```math
 r = \\sum_{i_{\\in\\text{axes}(C,1)} C_{i} (ik (i + \\text{shift}))^{a} \\exp(ik x (i + \\text{shift}))
 ```
+!!! note "Multi-dimensional performance hit"
+    This routine is allocation-free, but using it for multidimensional evaluation can be
+    slower than allocating because it always computes the Fourier coefficients on the fly.
+    Thus, it is typically more efficient to compute the outermost dimensions of the series
+    with [`fourier_contract!`](@ref) and then use this routine for the innermost dimension,
+    which is faster because it doesn't use inplace operations. [`FourierSeries`](@ref)
+    implements this behavior.
 """
 @fastmath function fourier_evaluate(C::AbstractArray{T,N}, xs::NTuple{N,Any}, ks::NTuple{N,Any}=map(inv∘oneunit, xs), as::NTuple{N,Any}=ntuple(_ -> Val(0), Val(N)), shifts::NTuple{N,Integer}=ntuple(_ -> 0, Val(N))) where {T,N}
     N == 0 && return C[]
