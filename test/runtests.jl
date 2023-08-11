@@ -29,7 +29,7 @@ include("fourier_reference.jl")
                 ref = ref_contract(C, x, k, a, dim)
                 oref = ref_contract(OC, x, k, a, dim)
                 if !(eltype(T) <: Complex)
-                    @test_throws ArgumentError fourier_contract!(R, C, x, k, a, shift, Val(dim))
+                    @test_throws InexactError fourier_contract!(R, C, x, k, a, shift, Val(dim))
                 else
                     # compare to reference evaluators
                     # @show x a n
@@ -44,10 +44,10 @@ include("fourier_reference.jl")
                 # test the 1D evaluators
                 n == 1 || continue
                 # compare to reference evaluators
-                @test ref_evaluate(C, x, k, a) ≈ fourier_evaluate(C, x, k, a)
-                @test ref_evaluate(OC, x, k, a) ≈ fourier_evaluate(OC, x, k, a)
+                @test ref_evaluate(C, x, k, a) ≈ fourier_evaluate(C, (x,), (k,), (a,))
+                @test ref_evaluate(OC, x, k, a) ≈ fourier_evaluate(OC, (x,), (k,), (a,))
                 # test the shift
-                @test ref_evaluate(OC, x, k, a) ≈ fourier_evaluate(parent(OC), x, k, a, -(origin+1))
+                @test ref_evaluate(OC, x, k, a) ≈ fourier_evaluate(parent(OC), (x,), (k,), (a,), (-(origin+1),))
             end
         end
         end
