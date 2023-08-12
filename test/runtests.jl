@@ -111,12 +111,12 @@ include("fourier_reference.jl")
             f = FourierSeries(rand(T, ntuple(_->n, d)...), period=periods)
             ds = DerivativeSeries{order}(f)
             dOs = if order == 1
-                map(dim -> FourierSeries(f.c, f.p, f.k, raise_multiplier(f.a, Val(dim)), f.o, f.q), 1:d)
+                map(dim -> FourierSeries(f.c, f.p, f.f, raise_multiplier(f.a, Val(dim)), f.o, f.q), 1:d)
             elseif order == 2
                 map(1:d) do dim1
                     map(dim1:d) do dim2
                         a = raise_multiplier(raise_multiplier(f.a, Val(dim1)), Val(dim2))
-                        return FourierSeries(f.c, f.p, f.k, a, f.o, f.q)
+                        return FourierSeries(f.c, f.p, f.f, a, f.o, f.q)
                     end
                 end
             elseif order == 3
@@ -124,7 +124,7 @@ include("fourier_reference.jl")
                     map(dim1:d) do dim2
                         map(dim2:d) do dim3
                             a = raise_multiplier(raise_multiplier(raise_multiplier(f.a, Val(dim1)), Val(dim2)), Val(dim3))
-                            return FourierSeries(f.c, f.p, f.k, a, f.o, f.q)
+                            return FourierSeries(f.c, f.p, f.f, a, f.o, f.q)
                         end
                     end
                 end
@@ -158,4 +158,31 @@ include("fourier_reference.jl")
             end
         end
     end
+
+    @testset "inplace" begin
+        d = 3
+        n = 11
+        T = ComplexF64
+        for nvar in 1:d
+            periods = rand(nvar)
+            C = rand(T, ntuple(_->n, d)...)
+            sizes = ntuple(_ -> n, d-nvar)
+            s = FourierSeries(SArray{Tuple{sizes...},T,d-nvar,prod(sizes)}[view(C,ntuple(_ -> (:), d-nvar)..., i) for i in CartesianIndices(axes(C)[end-nvar+1:end])], period=periods)
+            sip = FourierSeries(C, nvar, period=periods)
+            x = rand(nvar)
+            @test (@inferred sip(x)) ≈ s(x)
+            ms = ManyFourierSeries(s, s)
+            msip = ManyFourierSeries(sip, sip)
+            @test all((@inferred msip(x)) .≈ ms(x))
+            ds = @inferred HessianSeries(s)(x)
+            dsip = @inferred HessianSeries(sip)(x)
+            @test dsip[1] ≈ ds[1]
+            @test all(dsip[2] .≈ ds[2])
+            @test all(map(i -> all(dsip[3][i] .≈ ds[3][i]), 1:nvar))
+        end
+    end
+
+    # @testset "workspace" begin
+
+    # end
 end
