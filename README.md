@@ -9,7 +9,7 @@ Fourier coefficients. Its documented features include:
 - Arbitrary orders of derivatives of series
 - Memory management intended for parallel workloads
 
-These Fourier series are fast to evaluate in the sense that they have been
+These Fourier series are efficient to evaluate in the sense that they have been
 carefully optimized. The algorithm they implement is equivalent to multiplying a
 row of a DFT matrix against the column vector of coefficients. Thus this code is
 preferrable to FFTs only when the number of evaluation points is somewhat larger

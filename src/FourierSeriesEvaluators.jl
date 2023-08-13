@@ -1,7 +1,7 @@
 """
-A package implementing fast, multi-dimensional Fourier interpolation that is more convenient
-than FFTs when using hierarchical grids and when the number of coefficients is small
-compared to the number of evaluation points.
+A package implementing efficient, multi-dimensional Fourier interpolation that is more
+convenient than FFTs when using hierarchical grids and when the number of coefficients is
+small compared to the number of evaluation points.
 
 ### Quickstart
 
