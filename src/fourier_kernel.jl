@@ -14,7 +14,7 @@ _istwo(::Val{x}) where {x}  = istwo(x)
 
 # exponentiation that allows Val arguments
 @inline _pow(x, n) = x^n
-_pow(x, ::Val{n}) where n = _pow(x, n)
+@generated _pow(x, ::Val{n}) where {n} = :(x ^ $n)
 
 """
     fourier_contract!(r::AbstractArray{T,N-1}, C::AbstractArray{T,N}, x, [k=1, a=0, shift=0, dim=Val(N)]) where {T,N}
