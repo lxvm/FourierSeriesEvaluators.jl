@@ -1,0 +1,73 @@
+"""
+    FourierWorkspace
+
+A workspace for storing the intermediate arrays used during Fourier series evaluations.
+All functionality is provided by the [`workspace_allocate`](@ref),
+[`workspace_contract!`](@ref), and [`workspace_evaluate`](@ref) routines.
+"""
+struct FourierWorkspace{S,C}
+    series::S
+    cache::C
+end
+
+"""
+    workspace_allocate(s::AbstractFourierSeries{N}, x::NTuple{N}, [len::NTuple{N}=ntuple(one,N)])
+
+Allocates a [`FourierWorkspace`](@ref) for the Fourier series `s` that can be used to
+evaluate the series multiple times without allocating on-the-fly. The `len` argument can
+indicate how many copies of workspace should be made for each variable for downstream use in
+parallel workloads.
+
+The workspace is constructed recursively starting from the outer dimension and moving
+towards the inner dimension so as to access memory contiguously. Thus, the outer dimension
+has `len[N]` workspace copies and each of these has `len[N-1]` workspaces for the next
+variable. In total there are `prod(len)` leaf-level caches to use for parallel workloads.
+"""
+function workspace_allocate(s::AbstractFourierSeries{N}, x::NTuple{N,Any}, len::NTuple{N,Integer}=fill_ntuple(1,N)) where{N}
+    # Only the top-level workspace has an AbstractFourierSeries in the series field
+    # In the lower level workspaces the series field has a cache that can be contract!-ed
+    # into a series
+    dim = Val(N)
+    ws = ntuple(Val(len[N])) do n
+        cache = allocate(s, x[N], dim)
+        if N == 1
+            return cache
+        else
+            t = contract!(cache, s, x[N], dim)
+            return FourierWorkspace(cache, workspace_allocate(t, x[1:N-1], len[1:N-1]).cache)
+        end
+    end
+    return FourierWorkspace(s, ws)
+end
+
+"""
+    workspace_contract!(ws, x, [i=1])
+
+Returns a workspace with the series contracted at variable `x` in the outer dimension. The
+index `i` selects which workspace in the cache to assign the new data.
+"""
+function workspace_contract!(ws, x, i=1)
+    dim = Val(ndims(ws.series)) # we select the outer dimension so the inner are contiguous
+    s = contract!(ws.cache[i].series, ws.series, x, dim)
+    return FourierWorkspace(s, ws.cache[i].cache)
+end
+
+"""
+    workspace_evaluate!(ws, x, [i=1])
+
+Return the 1-d series evaluated at the variable `x`, using cache sector `i`.
+"""
+workspace_evaluate!(ws, x, i=1) = evaluate!(ws.cache[i], ws.series, x)
+
+"""
+    workspace_evaluate(ws, x)
+
+Evaluates the series using the workspace.
+"""
+function workspace_evaluate(ws, x::NTuple{N,Any}) where {N}
+    if N == 1
+        return workspace_evaluate!(ws, x[1])
+    else
+        return workspace_evaluate(workspace_contract!(ws, x[N]), x[1:N-1])
+    end
+end

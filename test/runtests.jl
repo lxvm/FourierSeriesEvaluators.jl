@@ -177,7 +177,28 @@ include("fourier_reference.jl")
         end
     end
 
-    # @testset "workspace" begin
+    @testset "workspace" begin
+        d = 3
+        n = 11
+        T = ComplexF64
+        C = rand(T, ntuple(_ -> n, d)...)
+        periods = rand(d)
+        f = FourierSeries(C, period=periods)
+        x = tuple(rand(d)...)
+        for s in (f, ManyFourierSeries(f,f,period=periods), JacobianSeries(f))
+            ws = workspace_allocate(s, x)
+            @test workspace_evaluate(ws, x) == s(x)
+        end
 
-    # end
+        # inplace
+        for nvar in 1:d
+            periods = rand(nvar)
+            fip = FourierSeries(C, nvar, period=periods)
+            x = tuple(rand(nvar)...)
+            for sip in (fip, ManyFourierSeries(fip,fip,period=periods), JacobianSeries(fip))
+                wsip = workspace_allocate(sip, x)
+                @test workspace_evaluate(wsip, x) == sip(x)
+            end
+        end
+    end
 end

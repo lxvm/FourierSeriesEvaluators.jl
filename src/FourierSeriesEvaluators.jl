@@ -30,4 +30,7 @@ include("fourier_kernel.jl")
 export FourierSeries, ManyFourierSeries, DerivativeSeries, JacobianSeries, HessianSeries
 include("fourier_series.jl")
 
+export FourierWorkspace
+include("workspace.jl")
+
 end
