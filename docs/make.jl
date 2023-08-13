@@ -17,7 +17,9 @@ makedocs(
     modules=[FourierSeriesEvaluators],
     pages = [
         "Home" => "index.md",
-        "Manual" => "methods.md",
+        "Examples" => "examples.md",
+        "AbstractFourierSeries" => "interface.md",
+        "Reference" => "reference.md",
     ],
 )
 

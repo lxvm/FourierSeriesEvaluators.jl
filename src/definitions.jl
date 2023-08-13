@@ -1,17 +1,18 @@
 """
     AbstractFourierSeries{N,T,iip}
 
-A supertype for multidimensional Fourier series objects. Given `f::AbstractFourierSeries`,
-you can evaluate at a point `x` with `f(x)`, where `x` is a vector (or scalar if `f` is 1d).
+A supertype for multidimensional Fourier series objects. Given a `f::AbstractFourierSeries`,
+you can evaluate it at a point `x` with `f(x)`, where `x` is a vector (or scalar if `f` is
+1d).
 
-Fourier series are periodic maps ``T^N \\to V`` where `T` is a real number and ``V`` is any
-vector space. Typically, a Fourier series can be represented by `N`-dimensional arrays whose
-elements belong to the vector space. If `iip` is `true`, then ``V`` is assumed to have
-mutable elements and inplace array operations are used. Otherwise, ``V`` is assumed to be
-immutable. The period of the series should be specified by values of type `T`, although no
-restriction is placed on the inputs to the series, e.g. arguments of type `Complex{T}` are
-OK. Additionally, if the caller wants to determine the floating-point precision of the
-Fourier coefficients, `T` and the arguments must both have that precision.
+Fourier series are periodic maps ``T^N \\to V`` where `T` is a space of real numbers and
+``V`` is any vector space. Typically, a Fourier series can be represented by `N`-dimensional
+arrays whose elements belong to the vector space. If `iip` is `true`, then ``V`` is assumed
+to have mutable elements and inplace array operations are used. Otherwise, ``V`` is assumed
+to be immutable. The period of the series should be specified by values of type `T`,
+although no restriction is placed on the inputs to the series, e.g. arguments of type
+`Complex{T}` are OK. Additionally, if the caller wants to determine the floating-point
+precision of the Fourier coefficients, `T` and the arguments must both have that precision.
 """
 abstract type AbstractFourierSeries{N,T,iip} end
 
@@ -20,7 +21,7 @@ abstract type AbstractFourierSeries{N,T,iip} end
 """
     allocate(f::AbstractFourierSeries{N}, x, ::Val{d}) where {N,d}
 
-Return a cache that can be used by [`fourier_contract!`](@ref) to store the result of
+Return a cache that can be used by [`contract!`](@ref) to store the result of
 contracting the coefficients of `f` along axis `d` using an input `x`.
 """
 function allocate end
@@ -30,15 +31,16 @@ function allocate end
 
 Return another Fourier series of dimension `N-1` by summing over dimension `d` of `f` with
 the phase factors evaluated at `x` and using the storage in `cache` created by a call to
-[`fourier_allocate`](@ref)
+[`allocate`](@ref)
 """
 function contract! end
 
 """
     evaluate!(cache, f::AbstractFourierSeries{1}, x)
 
-Evaluate the Fourier series at the point `x`, optionally with `cache` for inplace evaluation
-created by a call to [`fourier_allocate`](@ref)
+Evaluate the Fourier series at the point `x` using a `cache` for inplace evaluation created
+by a call to [`allocate`](@ref). If the series is inplace, the `cache` storage may be used
+as the return value, and if the series is not inplace the cache may be unused.
 """
 function evaluate! end
 
@@ -52,12 +54,21 @@ input used for the Fourier series evaluation.
 function period end
 
 """
-    frequency(f::AbstractFourierSeries, [dim]) = map(inv, period(f, [dim]))
+    frequency(f::AbstractFourierSeries, [dim]) == map(inv, period(f, [dim]))
 
 Return a tuple containing the frequency, or inverse of the period, of `f`. Optionally you
 can specify a dimension to just get the frequency of that dimension.
 """
 function frequency end
+
+"""
+    nextderivative(f::AbstractFourierSeries, ::Val{d}) where {d}
+
+This method returns a new series that evaluates the derivative of `f` with respect to its
+`d`th variable. This method is optional for normal evaluation, but [`DerivativeSeries`](@ref)
+requires it.
+"""
+function nextderivative end
 
 # abstract methods
 

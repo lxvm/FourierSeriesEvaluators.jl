@@ -2,15 +2,18 @@
 
 [Documentation](https://lxvm.github.io/FourierSeriesEvaluators.jl/dev/)
 
-This package provides multi-dimensional Fourier series evaluators for adaptive
-grid evaluation. They accept arbitrary array types as coefficients and support
-the `OffsetArray` type.
+This package provides multi-dimensional Fourier interpolants for arrays of
+Fourier coefficients. Its documented features include:
+- Support for arbitrary coefficient types and coefficients with offset indices
+- Inplace evaluation of (multiple) series at real and complex arguments
+- Arbitrary orders of derivatives of series
+- Memory management intended for parallel workloads
 
 These Fourier series are fast to evaluate in the sense that they have been
 carefully optimized. The algorithm they implement is equivalent to multiplying a
 row of a DFT matrix against the column vector of coefficients. Thus this code is
 preferrable to FFTs only when the number of evaluation points is somewhat larger
-than the number of Fourier coefficients, or when evaluation on non-equispace
+than the number of Fourier coefficients, or when interpolation on non-equispace
 grids is needed.
 
 ## Author and Copyright

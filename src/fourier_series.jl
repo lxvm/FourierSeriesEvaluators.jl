@@ -1,21 +1,27 @@
 """
-    FourierSeries(coeffs::AbstractArray, [N]; period=2pi, offset=0, deriv=0, shift=0)
+    FourierSeries(coeffs::AbstractArray, [N]; period, offset=0, deriv=0)
 
-Construct a Fourier series whose coefficients are given by the coefficient array
-array `coeffs` whose elements should support addition and scalar multiplication,
-This type represents the Fourier series
+Construct a Fourier series whose coefficients are given by the coefficient array array
+`coeffs` whose elements should support addition and scalar multiplication, This object
+represents the Fourier series
 ```math
-f(\\vec{x}) = \\sum_{\\vec{n} \\in \\mathcal I} C_{\\vec{n}} \\exp(i2\\pi\\vec{k}_{\\vec{n}}\\cdot\\overrightarrow{x})
+f(\\vec{x}) = \\sum_{\\vec{n} \\in \\mathcal I} C_{\\vec{n}} \\left( \\prod_{i} \\left( 2\\pi f_{i} (n_{i} + o_{i}) \\sqrt{-1} \\right)^{a_{i}} \\exp\\left(2\\pi f_{i} x_{i} (n_{i} + o_{i}) \\sqrt{-1} \\right) \\right)
 ```
-The indices ``\\vec{n}`` are the `CartesianIndices` of `coeffs`. Also, the
-keywords, which can either be a single value applied to all dimensions or a
-collection describing each dimension mean
-- `period`: The periodicity of the Fourier series. Equivalent to ``2\\pi/k``
+Here, the indices ``\\mathcal I`` are the `CartesianIndices` of `coeffs`, ``f_{i} =
+1/t_{i}`` is the frequency/inverse period, ``a_{i}`` is the order of derivative, and
+``o_{i}`` is the index offset. Also, the keywords, which
+can either be a single value applied to all dimensions or a tuple/vector describing each
+dimension mean
+- `period`: The periodicity of the Fourier series, which must be a real number
 - `offset`: An offset in the phase index, which must be integer
-- `deriv`: The degree of differentiation, implemented as a Fourier multiplier
-- `shift`: A translation `q` such that the evaluation point `x` is shifted to `x-q`
-If the optional argument `N` is set, it fixes the number of variables of the Fourier series,
-which may be less than or equal to `ndims(coeffs)`, and the series is evaluated inplace.
+- `deriv`: The degree of differentiation, implemented as a Fourier multiplier. Can be any
+  number `a` such that `x^a` is well-defined, or a `Val(a)`. `a::Integer` performs best.
+
+If inplace evaluation or evaluation of multiple series is desired, the optional argument `N`
+when set fixes the number of variables of the Fourier series, which may be less than or
+equal to `ndims(coeffs)`, and the series is evaluated inplace, returning the innermost,
+continguous `ndims(coeffs)-N` axes evaluated at the variables corresponding to the remaining
+outer axes.
 """
 struct FourierSeries{S,N,iip,C,A,T,F} <: AbstractFourierSeries{N,T,iip}
     c::C
@@ -33,9 +39,15 @@ struct FourierSeries{S,N,iip,C,A,T,F} <: AbstractFourierSeries{N,T,iip}
     end
 end
 
-fill_ntuple(e::Union{Number,Val}, N) = ntuple(_ -> e, N)
-fill_ntuple(e::Tuple, _) = e
-fill_ntuple(e::AbstractArray, _) = tuple(e...)
+function fill_ntuple(e, N)
+    if e isa Tuple || e isa AbstractArray
+        @assert length(e) == N
+        e isa Tuple && return e # avoids a type instability for heterogenous e
+        return NTuple{N}(e)
+    else
+        return ntuple(_ -> e, N)
+    end
+end
 
 freq2rad(x) = (x+x)*pi
 
@@ -162,7 +174,7 @@ struct DerivativeSeries{O,N,T,iip,F,DF} <: AbstractFourierSeries{N,T,iip}
 end
 
 """
-    DerivativeSeries{O}(f::FourierSeries)
+    DerivativeSeries{O}(f::AbstractFourierSeries)
 
 Construct an evaluator of a Fourier series and all of its derivatives up to order `O`, which
 must be a positive integer. `O=1` gives the gradient, `O=2` gives the Hessian, and so on.
@@ -178,6 +190,8 @@ partial derivatives `i = [a_1 ≤ ... ≤ a_N]` is stored in `ds(x)[O+1][i[1]][i
 These indices are given by the simplical generalization of [triangular
 numbers](https://en.wikipedia.org/wiki/Triangular_number). For examples of how to index into
 the solution see the unit tests.
+
+For this routine to work, `f` must implement [`nextderivative`](@ref).
 """
 function DerivativeSeries{O}(f::AbstractFourierSeries) where {O}
     O isa Integer || throw(ArgumentError("Derivative order must be an integer"))
@@ -225,5 +239,16 @@ frequency(ds::DerivativeSeries) = frequency(ds.f)
 
 show_details(::DerivativeSeries{O}) where {O} = " of order $O"
 
+"""
+    JacobianSeries
+
+Alias for a [`DerivativeSeries`](@ref) of order 1
+"""
 const JacobianSeries = DerivativeSeries{1}
+
+"""
+    HessianSeries
+
+Alias for a [`DerivativeSeries`](@ref) of order 2
+"""
 const HessianSeries  = DerivativeSeries{2}

@@ -1,9 +1,12 @@
 """
     FourierWorkspace
 
-A workspace for storing the intermediate arrays used during Fourier series evaluations.
-All functionality is provided by the [`workspace_allocate`](@ref),
-[`workspace_contract!`](@ref), and [`workspace_evaluate`](@ref) routines.
+A workspace for storing a Fourier series and the intermediate arrays used for evaluations.
+Given a `ws::FourierWorkspace`, you can evaluate it at a point `x` with `ws(x)`.
+
+All functionality is implemented by the [`workspace_allocate`](@ref),
+[`workspace_contract!`](@ref), and [`workspace_evaluate!`](@ref) routines, which allow
+multiple caches within each dimension of evaluation to enable parallel workloads.
 """
 struct FourierWorkspace{S,C}
     series::S
@@ -59,11 +62,6 @@ Return the 1-d series evaluated at the variable `x`, using cache sector `i`.
 """
 workspace_evaluate!(ws, x, i=1) = evaluate!(ws.cache[i], ws.series, x)
 
-"""
-    workspace_evaluate(ws, x)
-
-Evaluates the series using the workspace.
-"""
 function workspace_evaluate(ws::FourierWorkspace{<:AbstractFourierSeries{1}}, (x,)::NTuple{1})
     return workspace_evaluate!(ws, x)
 end

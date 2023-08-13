@@ -1,4 +1,3 @@
-"Return cis and its inverse"
 cis_inv(x::Real) = (z = cis(x); (z, conj(z)))   # inverse of root of unity is conjugate
 cis_inv(x::Complex) = (z = cis(x); (z, inv(z)))
 
@@ -122,11 +121,11 @@ end
 Evaluates a N-D Fourier series `C`. This function uses the indices in `axes(C)`
 to evaluate the phase factors, which makes it compatible with `OffsetArray`s as
 inputs. Optionally, a `shift` can be provided to manually offset the indices.
-Also, `a` represents the order of derivative of the series and must be a `Number`.
+Also, `a` represents the order(s) of derivative of the series.
 The arguments `x, k, a, shift` must all be tuples of length `N`, the same as the array
 dimension. The 1-D formula for what this routine calculates is:
 ```math
-r = \\sum_{i_{\\in\\text{axes}(C,1)} C_{i} (ik (i + \\text{shift}))^{a} \\exp(ik x (i + \\text{shift}))
+r = \\sum_{n\\in\\text{axes}(C,1)} C_{n} (ik (n + \\text{shift}))^{a} \\exp(ik x (n + \\text{shift}))
 ```
 !!! note "Multi-dimensional performance hit"
     This routine is allocation-free, but using it for multidimensional evaluation can be
