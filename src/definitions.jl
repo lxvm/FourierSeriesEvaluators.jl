@@ -1,19 +1,17 @@
 """
     AbstractFourierSeries{N,T,iip}
 
-A supertype for Fourier series that are periodic maps ``T^N \\to V`` where `T` is a real
-number and ``V`` is any vector space. Typically, a Fourier series can be represented by
-`N`-dimensional arrays whose elements belong to the vector space. If `iip` is `true`, then
-``V`` is assumed to have mutable elements and inplace array operations are used. Otherwise,
-``V`` is assumed to be be immutable. The period of the series should be specified by values
-of type `T`, although no restriction is placed on the inputs to the series, e.g. arguments
-of type `Complex{T}` are OK. Additionally, if the caller wants to determine the
-floating-point precision of the Fourier coefficients, `T` and the arguments must both have
-that precision.
+A supertype for multidimensional Fourier series objects. Given `f::AbstractFourierSeries`,
+you can evaluate at a point `x` with `f(x)`, where `x` is a vector (or scalar if `f` is 1d).
 
-    (f::AbstractFourierSeries)(x)
-
-Evaluate the Fourier series at the given point.
+Fourier series are periodic maps ``T^N \\to V`` where `T` is a real number and ``V`` is any
+vector space. Typically, a Fourier series can be represented by `N`-dimensional arrays whose
+elements belong to the vector space. If `iip` is `true`, then ``V`` is assumed to have
+mutable elements and inplace array operations are used. Otherwise, ``V`` is assumed to be
+immutable. The period of the series should be specified by values of type `T`, although no
+restriction is placed on the inputs to the series, e.g. arguments of type `Complex{T}` are
+OK. Additionally, if the caller wants to determine the floating-point precision of the
+Fourier coefficients, `T` and the arguments must both have that precision.
 """
 abstract type AbstractFourierSeries{N,T,iip} end
 
@@ -82,8 +80,10 @@ for name in (:period, :frequency)
 end
 
 # docstring in type definition above
-(f::AbstractFourierSeries{N})(x::NTuple{N,Any}) where {N} = evaluate(f, x)
-
+function (f::AbstractFourierSeries)(x)
+    (N = ndims(f)) == length(x) || throw(ArgumentError("number of input variables doesn't match those in series"))
+    return evaluate(f, NTuple{N}(x))
+end
 Base.ndims(::AbstractFourierSeries{N}) where N = N
 
 show_dims(::AbstractFourierSeries{N}) where {N} = "$N-dimensional"

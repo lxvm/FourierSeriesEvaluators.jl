@@ -64,10 +64,14 @@ workspace_evaluate!(ws, x, i=1) = evaluate!(ws.cache[i], ws.series, x)
 
 Evaluates the series using the workspace.
 """
-function workspace_evaluate(ws, x::NTuple{N,Any}) where {N}
-    if N == 1
-        return workspace_evaluate!(ws, x[1])
-    else
+function workspace_evaluate(ws::FourierWorkspace{<:AbstractFourierSeries{1}}, (x,)::NTuple{1})
+    return workspace_evaluate!(ws, x)
+end
+function workspace_evaluate(ws::FourierWorkspace{<:AbstractFourierSeries{N}}, x::NTuple{N,Any}) where {N}
         return workspace_evaluate(workspace_contract!(ws, x[N]), x[1:N-1])
-    end
+end
+
+function (ws::FourierWorkspace)(x)
+    (N = ndims(ws.series)) == length(x) || throw(ArgumentError("number of input variables doesn't match those in series"))
+    return workspace_evaluate(ws, NTuple{N}(x))
 end
