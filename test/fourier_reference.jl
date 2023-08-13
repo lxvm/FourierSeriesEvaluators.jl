@@ -20,7 +20,7 @@ end
 
 # sums over all the indices of the coefficient array
 function ref_evaluate(C::AbstractArray{T,N}, x, k, as=0) where {T,N}
-    imk = im*k
+    imk = im .* k
     kx = k .* x
     sum(CartesianIndices(C), init=complex(zero(float(T)))) do i
         C[i] * (cis(sum(kx .* i.I)) * prod((imk .* i.I) .^ as))
