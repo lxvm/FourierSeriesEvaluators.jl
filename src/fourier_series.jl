@@ -39,14 +39,14 @@ fill_ntuple(e::AbstractArray, _) = tuple(e...)
 
 freq2rad(x) = (x+x)*pi
 
-function FourierSeries(coeffs::AbstractArray; period, offset::Integer=0, deriv=0)
+function FourierSeries(coeffs::AbstractArray; period, offset=0, deriv=0)
     (N = ndims(coeffs)) > 0 || throw(ArgumentError("coefficient array must have at least one dimension"))
     t = fill_ntuple(period, N)
     a = fill_ntuple(deriv,  N)
     o = fill_ntuple(offset, N)
     return FourierSeries(coeffs, a, t, map(inv, t), o)
 end
-function FourierSeries(coeffs::AbstractArray, N::Integer; period, offset::Integer=0, deriv=0)
+function FourierSeries(coeffs::AbstractArray, N::Integer; period, offset=0, deriv=0)
     N > 0 || throw(ArgumentError("At least one variable is required"))
     t = fill_ntuple(period, N)
     a = fill_ntuple(deriv,  N)
