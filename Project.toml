@@ -4,4 +4,16 @@ authors = ["lxvm <lorenzo@vanmunoz.com>"]
 version = "1.0.0"
 
 [compat]
+ChainRulesCore = "1"
 julia = "1.6"
+
+[extensions]
+FourierSeriesEvaluatorsChainRulesCoreExt = ["ChainRulesCore", "LinearAlgebra"]
+
+[weakdeps]
+ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+
+[extras]
+ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
