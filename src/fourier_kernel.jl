@@ -1,7 +1,11 @@
-cis_inv(x::Real) = (z = cis(x); (z, conj(z)))   # inverse of root of unity is conjugate
-cis_inv(x::Complex) = (z = cis(x); (z, inv(z)))
+cis_inv(x) = (z = cis(x); (z, cis_inv_(x, z)))
+cis_inv_(::Real, z) = conj(z)   # inverse of root of unity is conjugate
+cis_inv_(::Complex, z) = inv(z)
 
-istwo(x) = x == (one(x) + one(x))
+# exponentiation that allows Val arguments
+@inline _pow(x, n) = x^n
+@generated _pow(x, ::Val{n}) where {n} = :(x ^ $n)
+
 # Boolean functions that also accept Val arguments
 @inline _iszero(x) = iszero(x)
 @inline _isone(x)  = isone(x)
@@ -10,10 +14,6 @@ istwo(x) = x == (one(x) + one(x))
 _iszero(::Val{x}) where {x} = iszero(x)
 _isone(::Val{x}) where {x}  = isone(x)
 _istwo(::Val{x}) where {x}  = istwo(x)
-
-# exponentiation that allows Val arguments
-@inline _pow(x, n) = x^n
-@generated _pow(x, ::Val{n}) where {n} = :(x ^ $n)
 
 """
     fourier_contract!(r::AbstractArray{T,N-1}, C::AbstractArray{T,N}, x, [k=1, a=0, shift=0, dim=Val(N)]) where {T,N}
@@ -193,4 +193,53 @@ r = \\sum_{n\\in\\text{axes}(C,1)} C_{n} (ik (n + \\text{shift}))^{a} \\exp(ik x
         end
     end
     return r
+end
+
+rawval(a) = a
+rawval(::Val{a}) where {a} = a
+
+# the idea is that this function will be faster for out-of-place multidimensional evaluation
+# since it pre-evaluates the phase factors, but for 1d it may add an extra flop
+# So far its not faster than FourierSeries because it still uses recursion and more winding
+# loops are used, but when N>1 it saves time compared to fourier_evaluate because of fewer
+# cis evaluations
+# in N=1 there is a large overhead to the preamble of computing cis (10 ns), about half of
+# which is computing u^a in the derivative of the Laurent series. If we eliminate this
+# overhead, then we win
+function fourier_laurent_evaluate(
+    C::CT,
+    xs::X,
+    ks::K=map(inv∘oneunit, xs),
+    as::A=ntuple(_ -> Val(0), Val(N)),
+    shifts::S=ntuple(zero, Val(N))
+) where {T,N,CT<:AbstractArray{T,N},X<:NTuple{N,Any},K<:NTuple{N,Any},A<:NTuple{N,Any},S<:NTuple{N,Integer}}
+    N == 0 && return C[]
+
+    ξs = map(*, xs, ks)
+    zs = map(cis, ξs)
+    us = map(cis_inv_, ξs, zs)
+    # apply global Fourier multiplier (z*im*k)^a (k^a could change type)
+    cs = ntuple(Val(N)) do n
+        c0 = firstindex(C, n) + div(size(C, n), 2) + Int(shifts[n])
+        z = cis(ξs[n]*c0)   # phase due to array index offset
+        return _iszero(as[n]) ? z : z*_pow(zs[n]*im*ks[n], as[n])
+    end
+    # ξs, zs, us, cs = precompute_fourier(C, xs, ks, as, shifts)
+
+    return prod(cs) * laurent_evaluate(C, zs, us, map(rawval, as), shifts)
+end
+
+function precompute_fourier(C, xs, ks, as, os)
+    if xs isa Tuple{}
+        return (), (), (), ()
+    else
+        N = length(xs)
+        ξs, zs, us, cs = precompute_fourier(C, xs[1:N-1], ks[1:N-1], as[1:N-1], os[1:N-1])
+        ξ = xs[N]*ks[N]
+        z, u = cis_inv(ξ)
+        c0 = firstindex(C, N) + div(size(C, N), 2) + Int(os[N])
+        z0 = cis(ξ*c0)
+        c = _iszero(as[N]) ? z0 : z0*_pow(z*im*ks[N], as[N])
+        return (ξs..., ξ), (zs..., z), (us..., u), (cs..., c)
+    end
 end

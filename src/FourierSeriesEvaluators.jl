@@ -44,6 +44,9 @@ module FourierSeriesEvaluators
 export AbstractFourierSeries
 include("definitions.jl")
 
+export laurent_evaluate
+include("laurent_kernel.jl")
+
 export fourier_contract, fourier_contract!, fourier_evaluate, fourier_allocate
 include("fourier_kernel.jl")
 
