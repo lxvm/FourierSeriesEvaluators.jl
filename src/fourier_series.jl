@@ -1,3 +1,7 @@
+# TODO for v2
+# drop T field of AbstractFourierSeries: why? consider differentation
+# drop S field of FourierSeries: why? can be computed on the fly
+
 """
     FourierSeries(coeffs::AbstractArray, [N]; period, offset=0, deriv=0)
 
@@ -23,20 +27,12 @@ equal to `ndims(coeffs)`, and the series is evaluated inplace, returning the inn
 continguous `ndims(coeffs)-N` axes evaluated at the variables corresponding to the remaining
 outer axes.
 """
-struct FourierSeries{S,N,iip,C,A,T,F} <: AbstractFourierSeries{N,T,iip}
+struct FourierSeries{S,N,iip,C<:AbstractArray,A<:NTuple{N,Any},T,F} <: AbstractFourierSeries{N,T,iip}
     c::C
     a::A
     t::NTuple{N,T}
     f::NTuple{N,F}
     o::NTuple{N,Int}
-    function FourierSeries(c::AbstractArray{<:Any,N}, a::NTuple{N,Any}, t::NTuple{N,T}, f::NTuple{N,F}, o::NTuple{N,Integer}) where {N,T,F}
-        return new{0,N,false,typeof(c),typeof(a),T,F}(c, a, t, f, o)
-    end
-    function FourierSeries{S}(c::AbstractArray{<:Any,M}, a::NTuple{N,Any}, t::NTuple{N,T}, f::NTuple{N,F}, o::NTuple{N,Integer}) where {S,M,N,T,F}
-        S == M-N || throw(ArgumentError("number of variables inconsistent with coefficient array"))
-        S < 0 && throw(ArgumentError("coefficient array cannot have fewer dimensions than variables"))
-        return new{S,N,true,typeof(c),typeof(a),T,F}(c, a, t, f, o)
-    end
 end
 
 function fill_ntuple(e, N)
@@ -56,19 +52,23 @@ function FourierSeries(coeffs::AbstractArray; period, offset=0, deriv=0)
     t = fill_ntuple(period, N)
     a = fill_ntuple(deriv,  N)
     o = fill_ntuple(offset, N)
-    return FourierSeries(coeffs, a, t, map(inv, t), o)
+    f = map(inv, t)
+    return FourierSeries{nothing,N,false,typeof(coeffs),typeof(a),eltype(t),eltype(f)}(coeffs, a, t, f, o)
 end
 function FourierSeries(coeffs::AbstractArray, N::Integer; period, offset=0, deriv=0)
     N > 0 || throw(ArgumentError("At least one variable is required"))
+    ndims(coeffs)-N < 0 && throw("coefficient array cannot have fewer dimensions than variables")
     t = fill_ntuple(period, N)
     a = fill_ntuple(deriv,  N)
     o = fill_ntuple(offset, N)
-    return FourierSeries{ndims(coeffs)-N}(coeffs, a, t, map(inv, t), o)
+    f = map(inv, t)
+    return FourierSeries{nothing,N,true,typeof(coeffs),typeof(a),eltype(t),eltype(f)}(coeffs, a, t, f, o)
 end
 
-function allocate(s::FourierSeries{S}, x, ::Val{d}) where {S,d}
+function allocate(s::FourierSeries, x, ::Val{d}) where {d}
     if isinplace(s) || ndims(s) > 1
-        return fourier_allocate(s.c, x, freq2rad(s.f[d]), s.a[d], Val(S+d))
+        M = ndims(s.c)-ndims(s)
+        return fourier_allocate(s.c, x, freq2rad(s.f[d]), s.a[d], Val(M+d))
     else
         return nothing
     end
@@ -78,19 +78,20 @@ deleteat_(t::Tuple, v::Val{i}) where {i} = deleteat__(v, t...)
 deleteat__(::Val{i}, t1, t...) where {i} = (t1, deleteat__(Val(i-1), t...)...)
 deleteat__(::Val{1}, t1, t...) = t
 
-function contract!(c, s::FourierSeries{S}, x, dim::Val{d}) where {S,d}
-    fourier_contract!(c, s.c, x, freq2rad(s.f[d]), s.a[d], s.o[d], Val(S+d))
+function contract!(c, s::FourierSeries, x, dim::Val{d}) where {d}
+    M = ndims(s.c)-ndims(s)
+    fourier_contract!(c, s.c, x, freq2rad(s.f[d]), s.a[d], s.o[d], Val(M+d))
     t = deleteat_(s.t, dim)
     f = deleteat_(s.f, dim)
     o = deleteat_(s.o, dim)
     a = deleteat_(s.a, dim)
-    return isinplace(s) ? FourierSeries{S}(c, a, t, f, o) : FourierSeries(c, a, t, f, o)
+    return FourierSeries{nothing,ndims(s)-1,isinplace(s),typeof(c),typeof(a),eltype(t),eltype(f)}(c, a, t, f, o)
 end
 
-function evaluate!(c, s::FourierSeries{S,1}, x) where {S}
+function evaluate!(c, s::FourierSeries{nothing,1}, x)
     f = freq2rad(s.f[1])
     if isinplace(s)
-        return fourier_contract!(c, s.c, x, f, s.a[1], s.o[1], Val(S+1))
+        return fourier_contract!(c, s.c, x, f, s.a[1], s.o[1], Val(ndims(s.c)))
     else
         return fourier_evaluate(s.c, (x,), (f,), s.a, s.o)
     end
@@ -112,14 +113,15 @@ struct ManyFourierSeries{N,T,iip,S,F} <: AbstractFourierSeries{N,T,iip}
     s::S
     t::NTuple{N,T}
     f::NTuple{N,F}
-    function ManyFourierSeries{iip}(s::Tuple{Vararg{AbstractFourierSeries{N,T,iip}}}, t::NTuple{N,T}, f::NTuple{N,F}) where {N,T,F,iip}
-        return new{N,T,iip,typeof(s),T}(s, t, f)
-    end
 end
-function ManyFourierSeries(s::AbstractFourierSeries{N,T,iip}...; period) where {N,T,iip}
+
+function ManyFourierSeries(s1::AbstractFourierSeries{N,T,iip}, s2::AbstractFourierSeries{N,T,iip}...; period) where {N,T,iip,}
+    s = (s1, s2...)
     t = fill_ntuple(period, N)
-    return ManyFourierSeries{iip}(s, t, map(inv, t))
+    f = map(inv, t)
+    return ManyFourierSeries{N,eltype(t),iip,typeof(s),eltype(f)}(s, t, f)
 end
+ManyFourierSeries(; period) = throw(ArgumentError("ManyFourierSeries requires at least one series"))
 
 function allocate(ms::ManyFourierSeries, x, dim)
     k = frequency(ms, dim)
@@ -130,7 +132,8 @@ function contract!(cs, ms::ManyFourierSeries, x, dim)
     f = frequency(ms, dim)
     f_ = deleteat_(frequency(ms), dim)
     t_ = deleteat_(period(ms), dim)
-    return ManyFourierSeries{isinplace(ms)}(map((c,s) -> contract!(c, s, x*f*period(s, dim), dim), cs, ms.s), t_, f_)
+    s_ = map((c,s) -> contract!(c, s, x*f*period(s, dim), dim), cs, ms.s)
+    return ManyFourierSeries{ndims(ms)-1,eltype(t_),isinplace(ms),typeof(s_),eltype(f_)}(s_, t_, f_)
 end
 
 function evaluate!(cs, ms::ManyFourierSeries{1}, x)
@@ -152,23 +155,22 @@ function raise_multiplier(t, ::Val{d}) where {d}
     return ntuple(n -> n == d ? raise_multiplier(t[n]) : t[n], Val(length(t)))
 end
 
-function nextderivative(s::FourierSeries{S}, dim) where {S}
+function nextderivative(s::FourierSeries, dim)
     a = raise_multiplier(s.a, dim)
-    if isinplace(s)
-        return FourierSeries{S}(s.c, a, s.t, s.f, s.o)
-    else
-        return FourierSeries(s.c, a, s.t, s.f, s.o)
-    end
+    return FourierSeries{nothing,ndims(s),isinplace(s),typeof(s.c),typeof(a),eltype(s.t),eltype(s.f)}(s.c, a, s.t, s.f, s.o)
 end
 
 function nextderivative(ms::ManyFourierSeries, dim)
-    return ManyFourierSeries{isinplace(ms)}(map(s -> nextderivative(s, dim), ms.s), period(ms), frequency(ms))
+    s_ = map(s -> nextderivative(s, dim), ms.s)
+    t_ = period(ms)
+    f_ = frequency(ms)
+    return ManyFourierSeries{ndims(ms),eltype(t_),isinplace(ms),typeof(s_),eltype(f_)}(s_, t_, f_)
 end
 
 struct DerivativeSeries{O,N,T,iip,F,DF} <: AbstractFourierSeries{N,T,iip}
     f::F
     df::DF
-    function DerivativeSeries{O}(f::AbstractFourierSeries{N,T}, df::ManyFourierSeries{N,T}) where {O,N,T}
+    function DerivativeSeries{O}(f::AbstractFourierSeries{N,T}, df::Tuple) where {O,N,T}
         return new{O,N,T,isinplace(f),typeof(f),typeof(df)}(f, df)
     end
 end
@@ -198,7 +200,7 @@ function DerivativeSeries{O}(f::AbstractFourierSeries) where {O}
     if O == 0
         return f
     elseif O > 0
-        return DerivativeSeries{O}(DerivativeSeries{O-1}(f), ManyFourierSeries{isinplace(f)}((),period(f),frequency(f)))
+        return DerivativeSeries{O}(DerivativeSeries{O-1}(f), ())
     else
         throw(ArgumentError("Derivatives of negative order not supported"))
     end
@@ -206,11 +208,11 @@ end
 
 function nextderivative(ds::DerivativeSeries{1}, dim)
     df = nextderivative(ds.f, dim)
-    return ManyFourierSeries(df, ds.df.s..., period=period(ds.df))
+    return ManyFourierSeries(df, ds.df..., period=period(ds))
 end
 function nextderivative(ds::DerivativeSeries, dim)
     df = nextderivative(nextderivative(ds.f, dim), dim)
-    return ManyFourierSeries(df, ds.df.s..., period=period(ds.df))
+    return ManyFourierSeries(df, ds.df..., period=period(ds))
 end
 
 function allocate(ds::DerivativeSeries, x, dim)
@@ -224,7 +226,7 @@ function contract!(cache, ds::DerivativeSeries{O}, x, dim) where {O}
     fx = contract!(cache[1], ds.f, x, dim)
     df = nextderivative(ds, dim)
     dfx = contract!(cache[2], df, x * period(df, dim) * frequency(ds, dim), dim)
-    return DerivativeSeries{O}(fx, dfx)
+    return DerivativeSeries{O}(fx, dfx.s)
 end
 
 function evaluate!(cache, ds::DerivativeSeries{O,1}, x) where {O}

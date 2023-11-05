@@ -7,6 +7,10 @@ using StaticArrays
 using FourierSeriesEvaluators
 using FourierSeriesEvaluators: raise_multiplier, workspace_allocate, workspace_evaluate
 
+using Aqua
+
+Aqua.test_all(FourierSeriesEvaluators)
+
 # TODO: validate the reference functions against FFTW
 include("fourier_reference.jl")
 
@@ -106,12 +110,12 @@ include("fourier_reference.jl")
             f = FourierSeries(rand(T, ntuple(_->n, d)...), period=periods)
             ds = DerivativeSeries{order}(f)
             dOs = if order == 1
-                map(dim -> FourierSeries(f.c, raise_multiplier(f.a, Val(dim)), f.t, f.f, f.o), 1:d)
+                map(dim -> FourierSeries(f.c, deriv=raise_multiplier(f.a, Val(dim)), period=f.t, offset=f.o), 1:d)
             elseif order == 2
                 map(1:d) do dim1
                     map(dim1:d) do dim2
                         a = raise_multiplier(raise_multiplier(f.a, Val(dim1)), Val(dim2))
-                        return FourierSeries(f.c, a, f.t, f.f, f.o)
+                        return FourierSeries(f.c, deriv=a, period=f.t, offset=f.o)
                     end
                 end
             elseif order == 3
@@ -119,7 +123,7 @@ include("fourier_reference.jl")
                     map(dim1:d) do dim2
                         map(dim2:d) do dim3
                             a = raise_multiplier(raise_multiplier(raise_multiplier(f.a, Val(dim1)), Val(dim2)), Val(dim3))
-                            return FourierSeries(f.c, a, f.t, f.f, f.o)
+                            return FourierSeries(f.c, deriv=a, period=f.t, offset=f.o)
                         end
                     end
                 end
