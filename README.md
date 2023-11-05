@@ -1,9 +1,9 @@
 # FourierSeriesEvaluators.jl
 
-[![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
-[![Build Status](https://github.com/lxvm/FourierSeriesEvaluators.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/lxvm/FourierSeriesEvaluators.jl/actions/?query=workflow:CI)
-[![Documentation - in development](https://img.shields.io/badge/docs-main-blue.svg)](https://lxvm.github.io/FourierSeriesEvaluators.jl/dev/)
-[![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
+| Documentation | Build Status | Coverage | Version |
+| :-: | :-: | :-: | :-: |
+| [![][docs-stable-img]][docs-stable-url] | [![][action-img]][action-url] | [![][codecov-img]][codecov-url] | [![ver-img]][ver-url] |
+| [![][docs-dev-img]][docs-dev-url] | [![][pkgeval-img]][pkgeval-url] | [![][aqua-img]][aqua-url] | [![deps-img]][deps-url] |
 
 
 This package provides multi-dimensional Fourier interpolants for arrays of
@@ -29,3 +29,30 @@ the MIT license.
 ## Related packages
 - [FFTW.jl](https://github.com/JuliaMath/FFTW.jl)
 - [OffsetArrays.jl](https://github.com/JuliaArrays/OffsetArrays.jl)
+
+
+<!-- badges -->
+
+[docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
+[docs-stable-url]: https://lxvm.github.io/FourierSeriesEvaluators.jl/stable/
+
+[docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
+[docs-dev-url]: https://lxvm.github.io/FourierSeriesEvaluators.jl/dev/
+
+[action-img]: https://github.com/lxvm/FourierSeriesEvaluators.jl/actions/workflows/CI.yml/badge.svg?branch=main
+[action-url]: https://github.com/lxvm/FourierSeriesEvaluators.jl/actions/?query=workflow:CI
+
+[pkgeval-img]: https://juliahub.com/docs/General/FourierSeriesEvaluators/stable/pkgeval.svg
+[pkgeval-url]: https://juliahub.com/ui/Packages/General/FourierSeriesEvaluators
+
+[codecov-img]: https://codecov.io/github/lxvm/FourierSeriesEvaluators.jl/branch/main/graph/badge.svg
+[codecov-url]: https://app.codecov.io/github/lxvm/FourierSeriesEvaluators.jl
+
+[aqua-img]: https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg
+[aqua-url]: https://github.com/JuliaTesting/Aqua.jl
+
+[ver-img]: https://juliahub.com/docs/FourierSeriesEvaluators/version.svg
+[ver-url]: https://juliahub.com/ui/Packages/FourierSeriesEvaluators/UDEDl
+
+[deps-img]: https://juliahub.com/docs/General/FourierSeriesEvaluators/stable/deps.svg
+[deps-url]: https://juliahub.com/ui/Packages/General/FourierSeriesEvaluators?t=2
