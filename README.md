@@ -1,6 +1,10 @@
 # FourierSeriesEvaluators.jl
 
-[Documentation](https://lxvm.github.io/FourierSeriesEvaluators.jl/dev/)
+[![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
+[![Build Status](https://github.com/lxvm/FourierSeriesEvaluators.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/lxvm/FourierSeriesEvaluators.jl/actions/?query=workflow:CI)
+[![Documentation - in development](https://img.shields.io/badge/docs-main-blue.svg)](https://lxvm.github.io/FourierSeriesEvaluators.jl/dev/)
+[![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
+
 
 This package provides multi-dimensional Fourier interpolants for arrays of
 Fourier coefficients. Its documented features include:
