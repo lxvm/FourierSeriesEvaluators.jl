@@ -9,7 +9,7 @@ using FourierSeriesEvaluators: raise_multiplier, workspace_allocate, workspace_e
 
 using Aqua
 
-Aqua.test_all(FourierSeriesEvaluators, project_toml_formatting=false)
+Aqua.test_all(FourierSeriesEvaluators)
 
 # TODO: validate the reference functions against FFTW
 include("fourier_reference.jl")
