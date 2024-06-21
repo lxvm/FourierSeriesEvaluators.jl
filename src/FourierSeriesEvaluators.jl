@@ -41,13 +41,13 @@ These routines have the following features
 """
 module FourierSeriesEvaluators
 
+using LinearAlgebra: Hermitian
+
 export AbstractFourierSeries
 include("definitions.jl")
 
 export fourier_contract, fourier_contract!, fourier_evaluate, fourier_allocate
 include("fourier_kernel.jl")
-
-include("hermitian.jl")
 
 export FourierSeries, ManyFourierSeries, DerivativeSeries, JacobianSeries, HessianSeries
 include("fourier_series.jl")
@@ -55,5 +55,7 @@ include("fourier_series.jl")
 export FourierWorkspace
 include("workspace.jl")
 
+export hermitian_fourier_evaluate, HermitianFourierSeries
+include("hermitian.jl")
 
 end

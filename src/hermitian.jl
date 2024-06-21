@@ -1,58 +1,95 @@
 # here we make use of the fact that for coefficients that satisfy A[i] = A[-i]' produce
 # hermitian-valued Fourier series since z*A[i] + z'*A[-i] = (z*A[i]) + (z*A[i])'
 
-@fastmath function hermitian_fourier_evaluate(C::AbstractVector{T}, x, k=inv(oneunit(x)), a=Val(0), shifts::Integer=0) where {T}
+_hermitianpart(a::Complex) = real(a)
+_hermitianpart(A::AbstractMatrix) = Hermitian(A)
+@inline @fastmath _add(x, y) = x + y
+@fastmath function hermitian_fourier_evaluate(C::AbstractVector{T}, x, k=inv(oneunit(x)), a=Val(0)) where {T}
+    u = k*x              # unitless
+    @assert u isa Real "Hermitian series can only be evaluated at real arguments"
+    s = size(C, 1)
+    i = firstindex(C)    # Find the index offset
+    e = complex(one(u))  # initial offset phase
 
-    u = k*x                 # unitless, could be complex
-    s = size(C, 1); isev = iseven(s)
-    c = firstindex(C, N)    # Find the index offset
-    c += M = div(s, 2)      # translate to find axis center
-    c0 = c+shift            # initial offset index
-    z0 = cis(u*c0)          # initial offset phase
-
-    ax = axes(C,1)
-
-    # apply global Fourier multiplier z0*(im*k)^a (k^a could change type)
-    z = _iszero(a)  ? z0            :
-        _isone(a)   ? z0*im*k       :
-        _istwo(a)   ? z0*(im*k)^2   : z0*_pow(im*k, a)
+    # apply global Fourier multiplier (im*k)^a (k^a could change type)
+    z = _iszero(a)  ? e            :
+        _isone(a)   ? e*im*k       :
+        _istwo(a)   ? e*(im*k)^2   : e*_pow(im*k, a)
 
     # initial Fourier coefficient z*c0^a (won't change type)
-    b = isev        ? zero(z)   :
-        _iszero(a)  ? z         :
-        _isone(a)   ? z*c0      :
-        _istwo(a)   ? z*c0^2    : z*_pow(c0, a)
-
-    if N == 1
-        @inbounds r = b * C[c]  # unroll first loop iteration
-    else
-        r = b * fourier_evaluate(selectdim(C, N, c), x_, k_, a_, shift_)
-    end
+    b = _iszero(a)  ? z : 0z
+    @inbounds r = _hermitianpart(b * C[i]) # unroll first loop iteration
     s == 1 && return r      # fast return for singleton dimensions
 
-    _dz, dz_ = cis_inv(step(ax)*u)   # forward-backward-winding phase steps
-
-    z_, c_ = z, c                  # initial winding phase, index
-    _z, _c = isev ? (z*dz_, c-1) : (z, c)
-
-    for n in 1:M            # symmetric winding loop
-        _z *= _dz           # forward--winding phase
-        z_ *= dz_           # backward-winding phase
-
-        _i = _c + n         # forward--winding index
-        i_ = c_ - n         # backward-winding index
-
+    dz = cis(1u)  # forward-backward-winding phase steps
+    for n in 1:s-1          # symmetric winding loop
+        z *= dz             # forward--winding phase
+        i += 1              # forward--winding index
         # winding coefficients
-        _b,b_ = _iszero(a)  ? (_z,              z_)                 :
-                _isone(a)   ? (_z*(_i+shift),   z_*(i_+shift))      :
-                _istwo(a)   ? (_z*(_i+shift)^2, z_*(i_+shift)^2)    : (_z*_pow(_i+shift, a), z_*_pow(i_+shift, a))
+        b = _iszero(a)  ? z     :
+            _isone(a)   ? z*n   :
+            _istwo(a)   ? z*n^2 : z*_pow(n, a)
 
-        if N == 1
-            @inbounds r += _b * C[_i] + b_ * C[i_]
-        else
-            r += _b * fourier_evaluate(selectdim(C, N, _i), x_, k_, a_, shift_) +
-                 b_ * fourier_evaluate(selectdim(C, N, i_), x_, k_, a_, shift_)
-        end
+        @inbounds B = b * C[i]
+        r += _add(_hermitianpart(B), _hermitianpart(B')) # _add function barrier allows control of fastmath
     end
     return r
 end
+
+struct HermitianFourierSeries{N,iip,C<:AbstractArray,A<:NTuple{N,Any},T,F} <: AbstractFourierSeries{N,T,iip}
+    c::C
+    a::A
+    t::NTuple{N,T}
+    f::NTuple{N,F}
+end
+
+function HermitianFourierSeries(coeffs::AbstractArray; period, deriv=0)
+    (N = ndims(coeffs)) > 0 || throw(ArgumentError("coefficient array must have at least one dimension"))
+    t = fill_ntuple(period, N)
+    a = fill_ntuple(deriv,  N)
+    f = map(inv, t)
+    return HermitianFourierSeries{N,false,typeof(coeffs),typeof(a),eltype(t),eltype(f)}(coeffs, a, t, f)
+end
+function HermitianFourierSeries(coeffs::AbstractArray, N::Integer; period, deriv=0)
+    error("not implemented") # have to decide how the array is entered
+    N > 0 || throw(ArgumentError("At least one variable is required"))
+    ndims(coeffs)-N < 0 && throw("coefficient array cannot have fewer dimensions than variables")
+    t = fill_ntuple(period, N)
+    a = fill_ntuple(deriv,  N)
+    f = map(inv, t)
+    return HermitianFourierSeries{N,true,typeof(coeffs),typeof(a),eltype(t),eltype(f)}(coeffs, a, t, f)
+end
+
+function evaluate!(c, s::HermitianFourierSeries{1}, x)
+    f = freq2rad(s.f[1])
+    if isinplace(s)
+        error("not implemented")
+        # return hermitian_fourier_contract!(c, s.c, x, f, s.a[1], Val(ndims(s.c)))
+    else
+        return hermitian_fourier_evaluate(s.c, x, f, s.a[1])
+    end
+end
+
+function allocate(s::HermitianFourierSeries, x, ::Val{d}) where {d}
+    if isinplace(s) || ndims(s) > 1
+        M = ndims(s.c)-ndims(s)
+        return fourier_allocate(s.c, x, freq2rad(s.f[d]), s.a[d], Val(M+d))
+    elseif isinplace(s) && ndims(s) == 1
+        error("not implemented")
+    else
+        return nothing
+    end
+end
+
+function contract!(c, s::HermitianFourierSeries, x, dim::Val{d}) where {d}
+    M = ndims(s.c)-ndims(s)
+    d == 1 && error("not implemented")
+    fourier_contract!(c, s.c, x, freq2rad(s.f[d]), s.a[d], -div(size(s.c, d),2)-1, Val(M+d))
+    t = deleteat_(s.t, dim)
+    f = deleteat_(s.f, dim)
+    a = deleteat_(s.a, dim)
+    return HermitianFourierSeries{ndims(s)-1,isinplace(s),typeof(c),typeof(a),eltype(t),eltype(f)}(c, a, t, f)
+end
+
+period(s::HermitianFourierSeries) = s.t
+frequency(s::HermitianFourierSeries) = s.f
