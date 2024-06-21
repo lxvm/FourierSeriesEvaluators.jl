@@ -3,6 +3,18 @@
 
 _hermitianpart(a::Complex) = real(a)
 _hermitianpart(A::AbstractMatrix) = Hermitian(A)
+
+"""
+    hermitian_fourier_evaluate(C::AbstractVector, x, [k=1, a=0])
+
+Evaluates a 1-D Hermitian Fourier series `C`, which is a compact representation
+of a series with coefficients `C[i] = C[-i]'`. The other arguments are the same
+as [`fourier_evaluate`](@ref). The precise formula of what is evaluated is given
+by the following, where the initial element ``C_{0}`` is equal to `C[begin]`:
+```math
+r = 0^a C_{0} + \\sum_{n=1}^{N-1} C_{n} (ik n)^{a} \\exp(ik n x)) + \\text{h.c.}
+```
+"""
 @fastmath function hermitian_fourier_evaluate(C::AbstractVector, x, k=inv(oneunit(x)), a=Val(0))
     u = k*x              # unitless
     @assert u isa Real "Hermitian series can only be evaluated at real arguments"
@@ -117,7 +129,7 @@ function _check_coeffs_centered(c::AbstractArray, o::NTuple)
     @assert ndims(c) >= length(o)
     all(zip(axes(c)[end-length(o)+1:end],o)) do (ax, o)
         len = length(ax)
-        isodd(len) && iszero(ax[div(len,2)+1]+o)
+        isodd(len) && iszero(ax[div(len,2)+begin]+o)
     end
 end
 
@@ -136,10 +148,10 @@ If `f` is an inplace evaluator, the Hermitian evaluator may evaluate a different
 """
     HermitianFourierSeries(f::FourierSeries)
 
-Construct an efficient evaluator for an operator-valued Fourier series whose
-coefficients have Hermitian symmetry, i.e. `c[i] = c[-i]'`. This evaluator
-guarantees that its output `ishermitian`, and is roughly 2x faster than a
-`FourierSeries` and uses half of the memory.
+Construct an efficient evaluator for an operator-valued [`FourierSeries`](@ref)
+whose coefficients have Hermitian symmetry, i.e. ``C_{i} = C_{-i}^{\\dagger}``.
+This evaluator guarantees that its output `ishermitian`, and is roughly 2x
+faster than a `FourierSeries` and uses half of the memory.
 
 Inplace series are not currently supported
 """
