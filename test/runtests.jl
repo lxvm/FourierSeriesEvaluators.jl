@@ -206,3 +206,5 @@ include("fourier_reference.jl")
         end
     end
 end
+
+@testset "hermitian" begin include("hermitian.jl") end
