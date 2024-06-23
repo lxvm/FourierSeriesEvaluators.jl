@@ -9,12 +9,22 @@ using FourierSeriesEvaluators: workspace_allocate, workspace_evaluate
 
 @testset "hermitian checks" begin
     n = 3
-    c = rand(SMatrix{3,3,ComplexF64,9}, 2n+1,2n+1)
+    T = SMatrix{3,3,ComplexF64,9}
+    c = rand(T, 2n+1,2n+1)
     @test !_check_coeffs_hermsym(c, (nothing, nothing))
     c = c + reverse(adjoint.(c))
     @test _check_coeffs_hermsym(c, (nothing, nothing))
     @test !_check_coeffs_centered(c, (-n, -n))
     @test _check_coeffs_centered(c, (-n-1, -n-1))
+    f = FourierSeries(rand(T, 2n+1, 2n+1); period=1.0, offset=-n-1)
+    @test_throws ArgumentError HermitianFourierSeries(f)
+    f = FourierSeries(c; period=1.0, offset=-n)
+    @test_throws ArgumentError HermitianFourierSeries(f)
+    # even-numbered
+    c = rand(SMatrix{3,3,ComplexF64,9}, 2n, 2n)
+    c = c + reverse(adjoint.(c))
+    f = FourierSeries(c; period=1.0, offset=-n-1)
+    @test_throws ArgumentError HermitianFourierSeries(f)
     #=
     ninner=4
     cc = Array{ComplexF64}(undef, ninner, 2n+1,2n+1)
@@ -33,13 +43,12 @@ end
     n = 5
     ntest = 10
     T = Float64
-    idx = Iterators.product(repeat([1:(2n+1)], d)...)
+    # idx = Iterators.product(repeat([1:(2n+1)], d)...)
     for a in [
-        [rand(Complex{T}) for _ in idx],
-        # [rand(Complex{T}, 2, 2) for _ in idx],
+        rand(Complex{T}, ntuple(_->2n+1,d)...),
         # [rand(Complex{T}, 3, 3) for _ in idx],
-        [rand(SMatrix{2,2,Complex{T},4}) for _ in idx],
-        [rand(SMatrix{3,3,Complex{T},9}) for _ in idx],
+        rand(SMatrix{2,2,Complex{T},4}, ntuple(_->2n+1,d)...),
+        rand(SMatrix{3,3,Complex{T},9}, ntuple(_->2n+1,d)...),
     ]
         c = a + reverse(adjoint.(a))
         f = FourierSeries(c; period=1.0, offset=-n-1)
@@ -50,7 +59,7 @@ end
         for _ in 1:ntest
             x = rand(T, d)
             hfx = @inferred hf(x)
-            @test ishermitian(hfx)
+            @test ishermitian(hfx isa AbstractMatrix ? Matrix(hfx) : hfx)
             @test f(x) ≈ hfx
             if first(c) isa AbstractMatrix && d == 1
                 @test hfx ≈ Hermitian(f2(x))
@@ -64,12 +73,12 @@ end
     ntest = 10
     ninner = 4
     T = Float64
-    idx = Iterators.product(ninner, repeat([1:(2n+1)], d)...)
+    # idx = Iterators.product(ninner, repeat([1:(2n+1)], d)...)
     for a in [
-        [rand(Complex{T}) for _ in idx],
+        rand(Complex{T}, ntuple(_->2n+1,d)...),
         # [rand(Complex{T}, 3, 3) for _ in idx],
-        [rand(SMatrix{2,2,Complex{T},4}) for _ in idx],
-        [rand(SMatrix{3,3,Complex{T},9}) for _ in idx],
+        rand(SMatrix{2,2,Complex{T},4}, ntuple(_->2n+1,d)...),
+        rand(SMatrix{3,3,Complex{T},9}, ntuple(_->2n+1,d)...),
     ]
         c = Array{eltype(a)}(undef, ninner, 2n+1,2n+1)
         for i in axes(c,1)
@@ -93,9 +102,8 @@ end
     d = 2
     n = 5
     ntest = 3
-    idx = Iterators.product(repeat([1:(2n+1)], d)...)
     T = Float64
-    c = [rand(SMatrix{2,2,Complex{T},4}) for _ in idx]
+    c = rand(SMatrix{2,2,Complex{T},4}, ntuple(_->2n+1,d)...)
     c = c + reverse(adjoint.(c))
     f = FourierSeries(c; period=1.0, offset=-n-1)
     hf = HermitianFourierSeries(f)
@@ -141,7 +149,7 @@ end
     d = 3
     n = 3
     T = SMatrix{2,2,ComplexF64,4}
-    C = rand(T, ntuple(_ -> n, d)...)
+    C = rand(T, ntuple(_ -> 2n+1, d)...)
     #=
     # inplace
     for nvar in 1:d-1
@@ -162,7 +170,7 @@ end
     =#
     C = C + reverse(adjoint.(C))
     periods = rand(d)
-    f = FourierSeries(C, period=periods)
+    f = FourierSeries(C; period=periods, offset=-n-1)
     hf = HermitianFourierSeries(f)
     x = tuple(rand(d)...)
     for s in (hf, ManyFourierSeries(hf,hf,period=periods), JacobianSeries(hf))

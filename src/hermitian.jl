@@ -158,7 +158,7 @@ Inplace series are not currently supported
 function HermitianFourierSeries(f::FourierSeries)
     isinplace(f) && throw(ArgumentError("inplace series are not supported"))
     _check_coeffs_hermsym(f.c, f.o) || throw(ArgumentError("Fourier coefficients do not have Hermitian symmetry"))
-    _check_coeffs_centered(f.c, f.o)
+    _check_coeffs_centered(f.c, f.o) || throw(ArgumentError("Fourier coefficients are not centered"))
     ax  = axes(f.c)
     _ax = ax[ndims(f.c)-length(f.o)+2:ndims(f.c)]
     ax_ = ax[1:ndims(f.c)-length(f.o)]

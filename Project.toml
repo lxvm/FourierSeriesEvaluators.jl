@@ -1,7 +1,7 @@
 name = "FourierSeriesEvaluators"
 uuid = "2a892dea-6eef-4bb5-9d1c-de966c9f6db5"
 authors = ["lxvm <lorenzo@vanmunoz.com>"]
-version = "1.1.1-DEV"
+version = "1.1.1"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
