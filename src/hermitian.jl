@@ -1,7 +1,17 @@
 # here we make use of the fact that for coefficients that satisfy A[i] = A[-i]' produce
 # hermitian-valued Fourier series since z*A[i] + z'*A[-i] = (z*A[i]) + (z*A[i])'
 
-_hermitianpart(a::Complex) = real(a)
+# One can also define a series having symmetric coefficients satisfying A[i] = A[-i] = transpose(A[i]).
+# This alone should guarantee that the output is also symmetric, but is most likely not
+# worth implementing separately because the evaluation of the series one dimension at a time
+# only preserves the Hermitian property of the intermediate coefficients.
+
+# If the coefficients are real symmetric and satisfy A[i] = A[-i] along each axis, then only
+# half of the coefficients along each dimension are needed to represent the series.
+# This case is not very general, so we do not specialize on it to attain a roughly 2x
+# speedup, although the routines below should preserve the real symmetric property numerically.
+
+_hermitianpart(a::Number) = real(a)
 _hermitianpart(A::AbstractMatrix) = Hermitian(A)
 
 """
@@ -29,7 +39,7 @@ r = 0^a C_{0} + \\sum_{n=1}^{N-1} C_{n} (ik n)^{a} \\exp(ik n x)) + \\text{h.c.}
 
     # initial Fourier coefficient z*c0^a (won't change type)
     b = _iszero(a)  ? z : 0z
-    @inbounds r = _hermitianpart(b * C[i]) # unroll first loop iteration
+    @inbounds r = _hermitianpart(_mul(b, C[i])) # unroll first loop iteration
     s == 1 && return r      # fast return for singleton dimensions
 
     dz = cis(1u)  # forward-backward-winding phase steps
@@ -41,72 +51,72 @@ r = 0^a C_{0} + \\sum_{n=1}^{N-1} C_{n} (ik n)^{a} \\exp(ik n x)) + \\text{h.c.}
             _isone(a)   ? z*n   :
             _istwo(a)   ? z*n^2 : z*_pow(n, a)
 
-        @inbounds B = b * C[i]
+        @inbounds B = _mul(b, C[i])
         r += _hermitianpart(B) + _hermitianpart(B')
     end
     return r
 end
-#=
-@fastmath function hermitian_fourier_contract!(r::AbstractArray, C::AbstractArray, x, k=inv(oneunit(x)), a=Val(0))
-    ndims(C) != ndims(r)+1 && throw(ArgumentError("array dimensions incompatible"))
+
+"""
+    hermitian_fourier_contract!(r::AbstractArray, C::AbstractArray, x, k=inv(oneunit(x)), a=0, ::Val{dim}=Val(ndims(C)))
+
+Contracts a single dimension of a multi-dimensional Fourier series, other than the innermost.
+Similar to [`fourier_contract!`](@ref) although this function will maintain the conjugate
+symmetry of the phase factors in the series.
+"""
+@fastmath function hermitian_fourier_contract!(r::AbstractArray{R,N_}, C::AbstractArray{T,N}, x, k=inv(oneunit(x)), a=0, ::Val{dim}=Val(N)) where {R,T,N,N_,dim}
+    N != N_+1 && throw(ArgumentError("array dimensions incompatible"))
+    1 < dim <= N || throw(ArgumentError("selected dimension to contract is out of bounds"))
     ax = axes(r)
     axC = axes(C)
-    ax == axC[1:end-1] || throw(BoundsError("array axes incompatible (check size or indexing)"))
+    (preidx = ax[1:dim-1]) == axC[1:dim-1] || throw(BoundsError("array axes incompatible (check size or indexing)"))
+    (sufidx = ax[dim:N_]) == axC[dim+1:N] || throw(BoundsError("array axes incompatible (check size or indexing)"))
 
-    preI = CartesianIndices(ax)
+    preI = CartesianIndices(preidx)
+    sufI = CartesianIndices(sufidx)
 
-    u = k*x              # unitless
+    u = k*x                 # unitless, could be complex
     @assert u isa Real "Hermitian series can only be evaluated at real arguments"
-    s = size(C, ndims(C))
-    i = firstindex(C, ndims(C))    # Find the index offset
-    e = complex(one(u))  # initial offset phase
+    s = size(C, dim);
+    iseven(s) && throw(ArgumentError("Hermitian series must have axes with odd lengths"))
+    c = firstindex(C, dim)  # Find the index offset
+    c += M = div(s, 2)      # translate to find axis center
+    e = complex(one(u))     # initial offset phase
 
-    # apply global Fourier multiplier (im*k)^a (k^a could change type)
+    # apply global Fourier multiplier z0*(im*k)^a (k^a could change type)
     z = _iszero(a)  ? e            :
         _isone(a)   ? e*im*k       :
         _istwo(a)   ? e*(im*k)^2   : e*_pow(im*k, a)
 
     # initial Fourier coefficient z*c0^a (won't change type)
     b = _iszero(a)  ? z : 0z
-    for prefix in preI
-        @inbounds r[prefix] = _hermitianpart(b * C[prefix, i])
+
+    for suffix in sufI, prefix in preI
+        @inbounds r[prefix, suffix] = b * C[prefix, c, suffix]
     end
+
     s == 1 && return r      # fast return for singleton dimensions
 
-    dz = cis(1u)  # forward-backward-winding phase steps
-    for n in 1:s-1          # symmetric winding loop
-        z *= dz             # forward--winding phase
-        i += 1              # forward--winding index
+    dz = cis(u)   # forward-backward-winding phase steps
+    _i = i_ = c
+    for n in 1:M    # symmetric winding loop
+        z *= dz     # forward--winding phase
+
+        _i += 1     # forward--winding index
+        i_ -= 1     # backward-winding index
+
         # winding coefficients
         b = _iszero(a)  ? z     :
             _isone(a)   ? z*n   :
             _istwo(a)   ? z*n^2 : z*_pow(n, a)
 
-        for prefix in preI
-            @inbounds B = b * C[prefix, i]
-            @inbounds r[prefix] += _hermitianpart(B) + _hermitianpart(B')
+        for suffix in sufI, prefix in preI
+            @inbounds r[prefix, suffix] += _mul(b, C[prefix, _i, suffix]) + _mul(conj(b), C[prefix, i_, suffix])
         end
     end
     return r
 end
 
-"""
-    hermitian_fourier_allocate(C, x, k, a)
-
-Allocate an array of the correct type for contracting the Hermitian Fourier
-series along the last axis
-"""
-function hermitian_fourier_allocate(C::AbstractArray{T,N}, x, k, a) where {T,N}
-    ax = axes(C)
-    prefix = CartesianIndices(ax[1:N-1])
-    v = view(C, prefix, firstindex(C, N))
-    y = zero(T)*cis(k*x)
-    r = _iszero(a)  ? y             :
-        _isone(a)   ? y*im*k        :
-        _istwo(a)   ? y*(im*k)^2    : y*_pow(im*k, a)
-    return similar(v, typeof(_hermitianpart(r)))
-end
-=#
 struct HermitianFourierSeries{N,iip,C<:AbstractArray,A<:NTuple{N,Any},T,F} <: AbstractFourierSeries{N,T,iip}
     c::C
     a::A
@@ -195,7 +205,7 @@ function contract!(c, s::HermitianFourierSeries, x, dim::Val{d}) where {d}
         # hermitian_fourier_contract!(c, s.c, x, freq2rad(s.f[d]), s.a[d])
     else
         M = ndims(s.c)-ndims(s)
-        fourier_contract!(c, s.c, x, freq2rad(s.f[d]), s.a[d], -div(size(s.c, M+d),2)-1, Val(M+d))
+        hermitian_fourier_contract!(c, s.c, x, freq2rad(s.f[d]), s.a[d], Val(M+d))
     end
     t = deleteat_(s.t, dim)
     f = deleteat_(s.f, dim)

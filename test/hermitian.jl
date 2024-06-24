@@ -178,3 +178,27 @@ end
         @test workspace_evaluate(ws, x) == s(x)
     end
 end
+
+@testset "symmetric series" begin
+    d = 3
+    n = 5
+    ntest = 10
+    for a in [
+        rand(Float64, ntuple(_->2n+1,d)...),
+        rand(SMatrix{3,3,Float64,9}, ntuple(_->2n+1,d)...),
+        rand(SHermitianCompact{3,Float64,6}, ntuple(_->2n+1,d)...),
+        # rand(SMatrix{3,3,ComplexF64,9}, ntuple(_->2n+1,d)...), # adjoint -> tranpose
+        # breaks hermitian property, but still symmetric
+    ]
+        c = a .+ adjoint.(a)
+        c = c + reverse(c)
+        f = FourierSeries(c; period=1.0, offset=-n-1)
+        hf = HermitianFourierSeries(f)
+        for _ in 1:ntest
+            x = rand(d)
+            hfx = hf(x)
+            @test f(x) ≈ hfx
+            @test hfx isa AbstractMatrix ? issymmetric(Matrix(hfx)) : isreal(hfx)
+        end
+    end
+end

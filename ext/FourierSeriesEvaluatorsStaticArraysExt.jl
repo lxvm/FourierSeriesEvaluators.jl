@@ -1,8 +1,9 @@
 module FourierSeriesEvaluatorsStaticArraysExt
-import FourierSeriesEvaluators: _hermitianpart
-using StaticArrays: SHermitianCompact, StaticMatrix
+import FourierSeriesEvaluators: _hermitianpart, _mul
+using StaticArrays: SHermitianCompact, StaticMatrix, SMatrix
 using LinearAlgebra: Hermitian, checksquare
 
+@inline @fastmath _mul(z::Complex, A::SHermitianCompact) = z * SMatrix(A)
 _hermitianpart(A::StaticMatrix) = SHermitianCompact{checksquare(A)}(Hermitian(A, 'L'))
 #=
 # the code above runs as efficiently as this manually written version

@@ -207,4 +207,16 @@ include("fourier_reference.jl")
     end
 end
 
+@testset "issue-SHermitianCompact" begin
+    d = 2
+    n = 5
+    c = rand(SHermitianCompact{3,ComplexF64,6},ntuple(_->2n+1,d)...)
+    f = FourierSeries(c; period=1.0, offset=-n-1)
+    fm = FourierSeries(SMatrix.(c); period=1.0, offset=-n-1)
+    x = rand(2)
+    fx = f(x)
+    @test fx isa SMatrix
+    @test fx ≈ fm(x)
+end
+
 @testset "hermitian" begin include("hermitian.jl") end
