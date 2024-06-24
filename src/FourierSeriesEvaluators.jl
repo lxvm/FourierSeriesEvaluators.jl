@@ -61,4 +61,8 @@ include("workspace.jl")
 export hermitian_fourier_evaluate, HermitianFourierSeries
 include("hermitian.jl")
 
+if !isdefined(Base, :get_extension)
+    include("../ext/FourierSeriesEvaluatorsStaticArraysExt.jl")
+end
+
 end
