@@ -44,7 +44,7 @@ These routines have the following features
 """
 module FourierSeriesEvaluators
 
-using LinearAlgebra: Hermitian
+using LinearAlgebra: Hermitian, issymmetric
 
 export AbstractFourierSeries
 include("definitions.jl")
@@ -58,8 +58,11 @@ include("fourier_series.jl")
 export FourierWorkspace
 include("workspace.jl")
 
-export hermitian_fourier_evaluate, HermitianFourierSeries
+export hermitian_fourier_evaluate, hermitian_fourier_contract!, HermitianFourierSeries
 include("hermitian.jl")
+
+export realsymmetric_fourier_evaluate, realsymmetric_contract!, RealSymmetricFourierSeries
+include("realsymmetric.jl")
 
 if !isdefined(Base, :get_extension)
     include("../ext/FourierSeriesEvaluatorsStaticArraysExt.jl")
