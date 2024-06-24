@@ -15,6 +15,10 @@ _istwo(::Val{x}) where {x}  = istwo(x)
 @inline _pow(x, n) = x^n
 @generated _pow(x, ::Val{n}) where {n} = :(x ^ $n)
 
+# function barrier to control optimization and a workaround for
+# https://github.com/JuliaArrays/StaticArrays.jl/issues/1263
+@inline @fastmath _mul(z, x) = z * x
+
 """
     fourier_contract!(r::AbstractArray{T,N-1}, C::AbstractArray{T,N}, x, [k=1, a=0, shift=0, dim=Val(N)]) where {T,N}
 
@@ -58,7 +62,7 @@ r_{i_{1},\\dots,i_{N-1}} = \\sum_{i_{N}\\in\\text{axes}(C,N)} C_{i_{1},\\dots,i_
         _istwo(a)   ? z*c0^2    : z*_pow(c0, a)
 
     for suffix in sufI, prefix in preI
-        @inbounds r[prefix, suffix] = b * C[prefix, c, suffix]
+        @inbounds r[prefix, suffix] = _mul(b, C[prefix, c, suffix])
     end
 
     s == 1 && return r      # fast return for singleton dimensions
@@ -81,7 +85,7 @@ r_{i_{1},\\dots,i_{N-1}} = \\sum_{i_{N}\\in\\text{axes}(C,N)} C_{i_{1},\\dots,i_
                 _istwo(a)   ? (_z*(_i+shift)^2, z_*(i_+shift)^2)    : (_z*_pow(_i+shift, a), z_*_pow(i_+shift, a))
 
         for suffix in sufI, prefix in preI
-            @inbounds r[prefix, suffix] += _b * C[prefix, _i, suffix] + b_ * C[prefix, i_, suffix]
+            @inbounds r[prefix, suffix] += _mul(_b, C[prefix, _i, suffix]) + _mul(b_, C[prefix, i_, suffix])
         end
     end
     return r
@@ -97,7 +101,7 @@ function fourier_allocate(C::AbstractArray{T,N}, x, k, a, ::Val{dim}) where {T,N
     prefix = CartesianIndices(ax[1:dim-1])
     suffix = CartesianIndices(ax[dim+1:N])
     v = view(C, prefix, firstindex(C, dim), suffix)
-    y = zero(T)*cis(k*x)
+    y = _mul(cis(k*x), zero(T))
     r = _iszero(a)  ? y             :
         _isone(a)   ? y*im*k        :
         _istwo(a)   ? y*(im*k)^2    : y*_pow(im*k, a)
@@ -162,7 +166,7 @@ r = \\sum_{n\\in\\text{axes}(C,1)} C_{n} (ik (n + \\text{shift}))^{a} \\exp(ik x
         _istwo(a)   ? z*c0^2    : z*_pow(c0, a)
 
     if N == 1
-        @inbounds r = b * C[c]  # unroll first loop iteration
+        @inbounds r = _mul(b, C[c])  # unroll first loop iteration
     else
         r = b * fourier_evaluate(selectdim(C, N, c), x_, k_, a_, shift_)
     end
@@ -188,8 +192,8 @@ r = \\sum_{n\\in\\text{axes}(C,1)} C_{n} (ik (n + \\text{shift}))^{a} \\exp(ik x
         if N == 1
             @inbounds r += _b * C[_i] + b_ * C[i_]
         else
-            r += _b * fourier_evaluate(selectdim(C, N, _i), x_, k_, a_, shift_) +
-                 b_ * fourier_evaluate(selectdim(C, N, i_), x_, k_, a_, shift_)
+            r += _mul(_b, fourier_evaluate(selectdim(C, N, _i), x_, k_, a_, shift_)) +
+                 _mul(b_, fourier_evaluate(selectdim(C, N, i_), x_, k_, a_, shift_))
         end
     end
     return r
