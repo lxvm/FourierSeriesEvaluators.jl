@@ -84,7 +84,7 @@ end
         for i in axes(c,1)
             c[i,:,:] .= a[i,:,:] + reverse(adjoint.(a[i,:,:]))
         end
-        f = FourierSeries(c, d; period=1.0, offset=-n-1)
+        f = FourierSeries(c, 1; period=1.0, offset=-n-1)
         @test_throws ArgumentError hf = HermitianFourierSeries(f)
         #=
         for _ in 1:ntest
@@ -115,17 +115,17 @@ end
         dhfx = @inferred dhf(x)
         for (n,(dfxi, dhfxi)) in enumerate(zip(dfx, dhfx))
             if n == (0+1)
-                @test ishermitian(dhfxi)
+                @test ishermitian(Matrix(dhfxi))
                 @test dfxi ≈ dhfxi
             elseif n == (1+1)
                 for i in 1:d
-                    @test ishermitian(dhfxi[i])
+                    @test ishermitian(Matrix(dhfxi[i]))
                     @test dfxi[i] ≈ dhfxi[i]
                 end
             elseif n == (2+1)
                 for j in 1:d
                     for i in 1:d-j+1
-                        @test ishermitian(dhfxi[j][i])
+                        @test ishermitian(Matrix(dhfxi[j][i]))
                         @test dfxi[j][i] ≈ dhfxi[j][i]
                     end
                 end
@@ -133,7 +133,7 @@ end
                 for k in 1:d
                     for j in 1:d-j+1
                         for i in 1:d-j-k+2
-                            @test ishermitian(dhfxi[k][j][i])
+                            @test ishermitian(Matrix(dhfxi[k][j][i]))
                             @test dfxi[k][j][i] ≈ dhfxi[k][j][i]
                         end
                     end
