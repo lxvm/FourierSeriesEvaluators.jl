@@ -179,8 +179,11 @@ end
     end
 end
 
-@testset "symmetric series" begin
-    d = 3
+@testset "real symmetric series" begin
+    # it is hard to guarantee numerically that the Hermitian evaluator will keep a real
+    # symmetric series real symmetric due to fastmath optimizations. For d=2 the real type
+    # of the coefficients is sufficiently narrow to prevent complex roundoff errors
+    d = 2
     n = 5
     ntest = 10
     for a in [
@@ -191,13 +194,16 @@ end
         # breaks hermitian property, but still symmetric
     ]
         c = a .+ adjoint.(a)
-        c = c + reverse(c)
+        for dims in 1:d
+            c = c + reverse(c; dims)
+        end
         f = FourierSeries(c; period=1.0, offset=-n-1)
         hf = HermitianFourierSeries(f)
         for _ in 1:ntest
             x = rand(d)
             hfx = hf(x)
             @test f(x) ≈ hfx
+            @test isreal(hfx)
             @test hfx isa AbstractMatrix ? issymmetric(Matrix(hfx)) : isreal(hfx)
         end
     end
