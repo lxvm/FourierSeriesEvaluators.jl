@@ -62,7 +62,6 @@ symmetry of the phase factors in the series.
     u = k*x                 # unitless, could be complex
     @assert u isa Real "RealSymmetric series can only be evaluated at real arguments"
     s = size(C, dim);
-    iseven(s) && throw(ArgumentError("Real symmetric series must have axes with odd lengths"))
     i = firstindex(C, dim)    # Find the index offset
     e = complex(one(u))     # initial offset phase
 
@@ -106,11 +105,11 @@ function realsymmetric_fourier_allocate(C::AbstractArray{T,N}, x, k, a, ::Val{di
     prefix = CartesianIndices(ax[1:dim-1])
     suffix = CartesianIndices(ax[dim+1:N])
     v = view(C, prefix, firstindex(C, dim), suffix)
-    y = _mul(real(cis(k*x)), zero(T))
-    r = _iszero(a)  ? y             :
-        _isone(a)   ? y*im*k        :
-        _istwo(a)   ? y*(im*k)^2    : y*_pow(im*k, a)
-    return similar(v, typeof(r))
+    z = cis(k*x)
+    b = _iszero(a)  ? z             :
+        _isone(a)   ? z*im*k        :
+        _istwo(a)   ? z*(im*k)^2    : z*_pow(im*k, a)
+    return similar(v, typeof(_mul(real(b), zero(T))))
 end
 
 

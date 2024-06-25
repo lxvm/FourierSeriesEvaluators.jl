@@ -220,3 +220,4 @@ end
 end
 
 @testset "hermitian" begin include("hermitian.jl") end
+@testset "realsymmetric" begin include("realsymmetric.jl") end
