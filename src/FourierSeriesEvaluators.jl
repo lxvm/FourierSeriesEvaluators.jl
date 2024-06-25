@@ -61,7 +61,7 @@ include("workspace.jl")
 export hermitian_fourier_evaluate, hermitian_fourier_contract!, HermitianFourierSeries
 include("hermitian.jl")
 
-export realsymmetric_fourier_evaluate, realsymmetric_contract!, RealSymmetricFourierSeries
+export realsymmetric_fourier_evaluate, realsymmetric_fourier_contract!, RealSymmetricFourierSeries
 include("realsymmetric.jl")
 
 if !isdefined(Base, :get_extension)
