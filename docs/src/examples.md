@@ -99,6 +99,35 @@ that exploits the symmetry.
 FourierSeriesEvaluators.HermitianFourierSeries
 ```
 
+## [`RealSymmetricFourierSeries`](@ref)
+
+Additional symmetry can be exploited when evaluating a Fourier series one
+dimension at a time. In particular, series with real-symmetric coefficients that
+are invariant with respect to inversion along all axes can be summed in a way
+that preserves the real-symmetric property.
+
+```@repl realsymm
+using FourierSeriesEvaluators, OffsetArrays, StaticArrays
+c = OffsetMatrix(rand(SHermitianCompact{2,Float64,3}, 7, 7), -3:3, -3:3);
+for dims in 1:2
+    c = c + reverse(c; dims) # symmetrize the coefficients
+end
+f = FourierSeries(c, period=1);
+rsf = RealSymmetricFourierSeries(f)
+```
+
+As shown above, a `RealSymmetricFourierSeries` can be constructed from an existing
+`FourierSeries` whose coefficients satisfy the symmetry property.
+
+```@repl realsymm
+x = rand(2);
+rsf(x)
+```
+
+```@docs
+FourierSeriesEvaluators.RealSymmetricFourierSeries
+```
+
 ## [`ManyFourierSeries`](@ref)
 
 A third way to evaluate multiple series at the same time, possibly with

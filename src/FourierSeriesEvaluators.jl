@@ -26,6 +26,7 @@ Generic Fourier series can be implemented with the [`AbstractFourierSeries`](@re
 and the following implementations are provided as building blocks for others:
 - [`FourierSeries`](@ref): (inplace) evaluation at real/complex arguments
 - [`HermitianFourierSeries`](@ref): series coefficients with Hermitian symmetry
+- [`RealSymmetricFourierSeries`](@ref): series coefficients with real-symmetric symmetry
 - [`ManyFourierSeries`](@ref): evaluation of multiple series
 - [`DerivativeSeries`](@ref): automatic evaluation of derivatives of series to any order
 
@@ -44,7 +45,7 @@ These routines have the following features
 """
 module FourierSeriesEvaluators
 
-using LinearAlgebra: Hermitian
+using LinearAlgebra: Hermitian, issymmetric
 
 export AbstractFourierSeries
 include("definitions.jl")
@@ -58,8 +59,11 @@ include("fourier_series.jl")
 export FourierWorkspace
 include("workspace.jl")
 
-export hermitian_fourier_evaluate, HermitianFourierSeries
+export hermitian_fourier_evaluate, hermitian_fourier_contract!, HermitianFourierSeries
 include("hermitian.jl")
+
+export realsymmetric_fourier_evaluate, realsymmetric_fourier_contract!, RealSymmetricFourierSeries
+include("realsymmetric.jl")
 
 if !isdefined(Base, :get_extension)
     include("../ext/FourierSeriesEvaluatorsStaticArraysExt.jl")

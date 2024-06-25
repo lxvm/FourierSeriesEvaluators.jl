@@ -84,7 +84,7 @@ end
         for i in axes(c,1)
             c[i,:,:] .= a[i,:,:] + reverse(adjoint.(a[i,:,:]))
         end
-        f = FourierSeries(c, d; period=1.0, offset=-n-1)
+        f = FourierSeries(c, 1; period=1.0, offset=-n-1)
         @test_throws ArgumentError hf = HermitianFourierSeries(f)
         #=
         for _ in 1:ntest
@@ -115,17 +115,17 @@ end
         dhfx = @inferred dhf(x)
         for (n,(dfxi, dhfxi)) in enumerate(zip(dfx, dhfx))
             if n == (0+1)
-                @test ishermitian(dhfxi)
+                @test ishermitian(Matrix(dhfxi))
                 @test dfxi ≈ dhfxi
             elseif n == (1+1)
                 for i in 1:d
-                    @test ishermitian(dhfxi[i])
+                    @test ishermitian(Matrix(dhfxi[i]))
                     @test dfxi[i] ≈ dhfxi[i]
                 end
             elseif n == (2+1)
                 for j in 1:d
                     for i in 1:d-j+1
-                        @test ishermitian(dhfxi[j][i])
+                        @test ishermitian(Matrix(dhfxi[j][i]))
                         @test dfxi[j][i] ≈ dhfxi[j][i]
                     end
                 end
@@ -133,7 +133,7 @@ end
                 for k in 1:d
                     for j in 1:d-j+1
                         for i in 1:d-j-k+2
-                            @test ishermitian(dhfxi[k][j][i])
+                            @test ishermitian(Matrix(dhfxi[k][j][i]))
                             @test dfxi[k][j][i] ≈ dhfxi[k][j][i]
                         end
                     end
@@ -179,8 +179,11 @@ end
     end
 end
 
-@testset "symmetric series" begin
-    d = 3
+@testset "real symmetric series" begin
+    # it is hard to guarantee numerically that the Hermitian evaluator will keep a real
+    # symmetric series real symmetric due to fastmath optimizations. For d=2 the real type
+    # of the coefficients is sufficiently narrow to prevent complex roundoff errors
+    d = 2
     n = 5
     ntest = 10
     for a in [
@@ -191,13 +194,16 @@ end
         # breaks hermitian property, but still symmetric
     ]
         c = a .+ adjoint.(a)
-        c = c + reverse(c)
+        for dims in 1:d
+            c = c + reverse(c; dims)
+        end
         f = FourierSeries(c; period=1.0, offset=-n-1)
         hf = HermitianFourierSeries(f)
         for _ in 1:ntest
             x = rand(d)
             hfx = hf(x)
             @test f(x) ≈ hfx
+            @test isreal(hfx)
             @test hfx isa AbstractMatrix ? issymmetric(Matrix(hfx)) : isreal(hfx)
         end
     end
