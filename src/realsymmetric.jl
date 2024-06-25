@@ -142,9 +142,9 @@ end
 
 Construct an efficient evaluator for an operator-valued [`FourierSeries`](@ref)
 whose coefficients are real symmetric, i.e. ``C_{i} = C_{-i} = C_{i}^{T}``.
-Moreover there must be permutation symmetry along axes.
-This evaluator guarantees that its output `isreal` and `isymmetric`, and is roughly `2^ndims(f)`
-time and memory compared to a `FourierSeries`.
+Moreover the inversion symmetry must apply to each axis independently.
+This evaluator guarantees that its output `isreal` and `isymmetric`, and is uses roughly `2^ndims(f)`
+less memory compared to a `FourierSeries` and also less than half the time.
 
 Inplace series are not currently supported
 """

@@ -26,6 +26,7 @@ Generic Fourier series can be implemented with the [`AbstractFourierSeries`](@re
 and the following implementations are provided as building blocks for others:
 - [`FourierSeries`](@ref): (inplace) evaluation at real/complex arguments
 - [`HermitianFourierSeries`](@ref): series coefficients with Hermitian symmetry
+- [`RealSymmetricFourierSeries`](@ref): series coefficients with real-symmetric symmetry
 - [`ManyFourierSeries`](@ref): evaluation of multiple series
 - [`DerivativeSeries`](@ref): automatic evaluation of derivatives of series to any order
 
