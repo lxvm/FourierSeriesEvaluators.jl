@@ -1,5 +1,5 @@
 cis_inv(x::Real) = (z = cis(x); (z, conj(z)))   # inverse of root of unity is conjugate
-cis_inv(x::Complex) = (z = cis(x); (z, inv(z)))
+cis_inv(x::Number) = (z = cis(x); (z, inv(z)))
 
 istwo(x) = x == (one(x) + one(x))
 # Boolean functions that also accept Val arguments

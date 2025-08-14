@@ -7,6 +7,8 @@ using StaticArrays
 using FourierSeriesEvaluators
 using FourierSeriesEvaluators: raise_multiplier, workspace_allocate, workspace_evaluate
 
+using Unitful
+
 using Aqua
 
 Aqua.test_all(FourierSeriesEvaluators)
@@ -221,3 +223,8 @@ end
 
 @testset "hermitian" begin include("hermitian.jl") end
 @testset "realsymmetric" begin include("realsymmetric.jl") end
+
+@testset "issue-Unitful" begin
+    f = FourierSeries([1, 0, 1]/2; period=1.0u"m", offset=-2)
+    @test f(0.0u"m") ≈ 1.0u"m"
+end
