@@ -226,5 +226,5 @@ end
 
 @testset "issue-Unitful" begin
     f = FourierSeries([1, 0, 1]/2; period=1.0u"m", offset=-2)
-    @test f(0.0u"m") ≈ 1.0u"m"
+    @test f(0.0u"m") ≈ 1.0
 end
